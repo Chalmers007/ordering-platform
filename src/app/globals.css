@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Brand tokens.
+ *
+ * Defined on :root, not on a wrapper element, because Radix renders dialogs
+ * into a portal on <body> — a variable scoped to a layout div does not reach
+ * them, and every portalled button silently loses its background.
+ *
+ * The storefront overrides these per tenant; every other surface uses the
+ * platform defaults.
+ */
+:root {
+  --brand-primary: #111827;
+  --brand-accent: #f97316;
+}
