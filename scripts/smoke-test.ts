@@ -120,6 +120,13 @@ const checks: Expectation[] = [
     name: tenant ? `Storefront renders for "${tenant}"` : 'Storefront check',
     url: withPort(`${tenant ?? 'tenant'}.${bareRoot}`) + '/',
     expect: [200],
+    // Status alone is not enough here: the "no restaurant here" page is a
+    // perfectly healthy 200. Without this assertion the check passes for a
+    // slug that does not exist, which is the one thing it must not do.
+    assertBody: (body) =>
+      /No restaurant here yet|not connected to a restaurant/i.test(body)
+        ? 'host resolved but no such tenant — the unavailable page was served'
+        : null,
     skip: tenant ? undefined : 'pass --tenant=<slug> to check a live storefront',
   },
 ];
