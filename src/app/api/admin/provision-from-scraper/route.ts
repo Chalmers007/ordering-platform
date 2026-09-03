@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { requireSuperAdmin } from '@/lib/admin/guard';
+import { requireBridgeCaller } from '@/lib/admin/bridge-auth';
 import { drainWebhookEvents } from '@/lib/webhooks/dispatch';
 import { parseAndStage, parseRestaurant, StagingError } from '@/lib/scraper/parse-and-stage';
 import { itemCount } from '@/lib/scraper/schema';
@@ -22,8 +22,11 @@ import { itemCount } from '@/lib/scraper/schema';
  * `?dryRun=1` parses and returns what WOULD be staged without writing a row —
  * which is how a scraped menu should be looked at the first time.
  *
- * Super-admin only. This creates tenants and mints ownership tokens; it is not
- * an endpoint a scraper should be able to reach with a shared secret.
+ * Reachable two ways, and no others: a super-admin session (the dashboard), or
+ * a shared bridge secret (vardr-os, which has no cookie). This creates tenants
+ * and mints ownership tokens, so the secret is worth an admin password — see
+ * lib/admin/bridge-auth.ts for how it is compared and why an unset secret
+ * disables the machine path rather than opening it.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,12 +63,9 @@ function statusForStagingError(reason: StagingError['reason']): number {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) {
-    return NextResponse.json(
-      { error: guard.reason === 'unauthenticated' ? 'Not signed in' : 'Forbidden' },
-      { status: guard.reason === 'unauthenticated' ? 401 : 403 },
-    );
+  const caller = await requireBridgeCaller(request);
+  if (!caller.ok) {
+    return NextResponse.json({ error: caller.error }, { status: caller.status });
   }
 
   let body: z.infer<typeof payloadSchema>;
