@@ -423,3 +423,36 @@ export async function importMenu(rows: unknown[]): Promise<ActionResult<ImportSu
   revalidatePath('/menu');
   return ok(summary);
 }
+
+/**
+ * The owner's statement that an imported menu is accurate.
+ *
+ * Calls confirm_menu(), which sets `menu_verified_at` and releases every
+ * scraped item in one statement — 92 rows for Cajun Seafood, and the
+ * alternative was 92 checkboxes.
+ *
+ * ── Why this is a separate act from claiming ─────────────────────────────────
+ * Claiming proves who owns the storefront. This proves the prices are right.
+ * A menu assembled from a business's own website is a set of claims they never
+ * made to us, and some of it is stale the day it is read — so somebody has to
+ * say "yes, that is my menu" before a diner can be charged from it.
+ *
+ * The tenant comes from the session, never from the client: a request that
+ * cannot express another tenant's id cannot be the thing that finds a hole in
+ * a policy. confirm_menu() re-checks can_manage_tenant() underneath, so a
+ * staff member who is not an owner is refused there even if this were wrong.
+ */
+export async function confirmMenu(): Promise<ActionResult<void>> {
+  const tenantId = await tenantOrFail();
+  if (!tenantId) return fail('No access', { code: 'forbidden' });
+
+  // The SESSION client, not the service role. confirm_menu() authorises with
+  // can_manage_tenant(), which resolves auth.uid() — the service role has no
+  // user and would either fail or, worse, bypass the check entirely.
+  const supabase = await createClientForRequest();
+  const { error } = await supabase.rpc('confirm_menu', { p_tenant_id: tenantId });
+
+  if (error) return fail(refused(error.code, error.message), { code: 'unknown' });
+  revalidatePath('/menu');
+  return ok(undefined);
+}

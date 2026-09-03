@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createClientForRequest } from '@/lib/supabase/server';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { MenuManager } from '@/components/dashboard/menu-manager';
+import { ConfirmMenuCard } from '@/components/dashboard/confirm-menu-card';
 import type { MenuCategory, MenuItem, MenuModifierGroup } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
@@ -12,8 +13,9 @@ export default async function MenuPage() {
 
   const supabase = await createClientForRequest();
 
-  const [{ data: categories }, { data: items }, { data: groups }, { data: links }] =
+  const [{ data: tenant }, { data: categories }, { data: items }, { data: groups }, { data: links }] =
     await Promise.all([
+      supabase.from('tenants').select('menu_verified_at').eq('id', staff.tenantId).maybeSingle(),
       supabase
         .from('menu_categories')
         .select('*')
@@ -38,6 +40,12 @@ export default async function MenuPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6">
       <h1 className="text-xl font-semibold text-neutral-100">Menu manager</h1>
+      {/* Only while unconfirmed. After confirm_menu() sets the timestamp this
+          disappears, and a repeat click is impossible because the control is
+          gone — not merely disabled. */}
+      {tenant && !tenant.menu_verified_at && (
+        <ConfirmMenuCard scrapedCount={(items ?? []).filter((i) => i.source === 'scraped').length} />
+      )}
       <p className="mt-1 text-sm text-neutral-400">
         Changes appear on your storefront straight away.
       </p>
