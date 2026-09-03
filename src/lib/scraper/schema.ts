@@ -45,9 +45,39 @@ export const priceCents = z
   .min(0, 'price cannot be negative')
   .max(MAX_PRICE_CENTS, `price cannot exceed ${MAX_PRICE_CENTS} cents`);
 
+/**
+ * Decode the HTML entities a page leaves in its own JSON-LD.
+ *
+ * kwickmenu publishes `5pc Wings&amp;shrimp` inside its structured menu. The
+ * markup is decoded by a browser; JSON-LD read straight out of a <script> tag
+ * is not, so the entity travels all the way onto a storefront and is shown to
+ * the restaurant as their own menu item. Numeric and named forms both appear.
+ */
+export function decodeEntities(value: string): string {
+  const named: Record<string, string> = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘',
+    ldquo: '“', rdquo: '”', deg: '°', frac12: '½', frac14: '¼', frac34: '¾',
+  }
+  return value
+    // Repeat once: `&amp;amp;` is a real thing on double-encoded pages.
+    .replace(/&(#x?[0-9a-f]+|[a-z0-9]+);/gi, (whole, body: string) => {
+      if (body.startsWith('#x') || body.startsWith('#X')) return String.fromCodePoint(parseInt(body.slice(2), 16))
+      if (body.startsWith('#')) return String.fromCodePoint(Number(body.slice(1)))
+      return named[body.toLowerCase()] ?? whole
+    })
+    .replace(/&(amp|lt|gt|quot|apos|nbsp);/gi, (whole, body: string) => named[body.toLowerCase()] ?? whole)
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/** A display string as it should reach a storefront: decoded and trimmed. */
+const displayText = (max: number) => z.string().trim().transform(decodeEntities).pipe(z.string().min(1).max(max))
+const optionalText = (max: number) => z.string().trim().transform(decodeEntities).pipe(z.string().max(max)).nullable().default(null)
+
 export const parsedItemSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(600).nullable().default(null),
+  name: displayText(120),
+  description: optionalText(600),
   priceCents,
   /** Only when the page states it plainly. Guessed calories are invented facts. */
   calories: z.number().int().min(0).max(10_000).nullable().default(null),
@@ -55,8 +85,8 @@ export const parsedItemSchema = z.object({
 });
 
 export const parsedCategorySchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  description: z.string().trim().max(400).nullable().default(null),
+  name: displayText(80),
+  description: optionalText(400),
   items: z.array(parsedItemSchema).min(1).max(200),
 });
 
@@ -68,9 +98,9 @@ export const parsedBrandingSchema = z.object({
 });
 
 export const parsedRestaurantSchema = z.object({
-  name: z.string().trim().min(1).max(160),
+  name: displayText(160),
   /** Free-text, as printed. Never normalised into a claim about cuisine. */
-  cuisine: z.string().trim().max(80).nullable().default(null),
+  cuisine: optionalText(80),
   branding: parsedBrandingSchema,
   categories: z.array(parsedCategorySchema).min(1).max(40),
   /** The page each fact came from, for the provenance column on every item. */

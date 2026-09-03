@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePriceToCents, parsedRestaurantSchema, slugify, itemCount, MAX_PRICE_CENTS } from './schema';
+import { decodeEntities, parsePriceToCents, parsedRestaurantSchema, slugify, itemCount, MAX_PRICE_CENTS } from './schema';
 
 describe('parsePriceToCents', () => {
   it('reads the shapes a menu page actually prints', () => {
@@ -82,5 +82,34 @@ describe('slugify', () => {
     expect(slugify('Wood-Fired Margherita')).toBe('wood-fired-margherita');
     expect(slugify('  Café  Crème  ')).toBe(slugify('Café Crème'));
     expect(slugify('Chef’s Special!!')).toBe('chef-s-special');
+  });
+});
+
+describe('HTML entities in a page’s own structured data', () => {
+  it('are decoded before they reach a storefront', () => {
+    // kwickmenu publishes `5pc Wings&amp;shrimp` inside its JSON-LD. A browser
+    // decodes that; a <script> tag read directly does not, so without this the
+    // restaurant is shown their own menu item spelled wrong.
+    expect(decodeEntities('5pc Wings&amp;shrimp')).toBe('5pc Wings&shrimp');
+    expect(decodeEntities('Fish &amp; Chips')).toBe('Fish & Chips');
+    expect(decodeEntities('Caf&eacute; special')).toBe('Caf&eacute; special'); // unknown named entity left alone
+    expect(decodeEntities('Mac &#38; Cheese')).toBe('Mac & Cheese');
+    expect(decodeEntities('Jalape&#241;o Poppers')).toBe('Jalapeño Poppers');
+    expect(decodeEntities('Half &frac12; portion')).toBe('Half ½ portion');
+    expect(decodeEntities('Double &amp;amp; encoded')).toBe('Double & encoded');
+    expect(decodeEntities('  spaced   out  ')).toBe('spaced out');
+  });
+
+  it('decoding runs inside the schema, not only as a helper', () => {
+    const parsed = parsedRestaurantSchema.parse({
+      name: 'Cajun Seafood &amp; Grill',
+      cuisine: null,
+      branding: { primaryColor: null, accentColor: null, logoUrl: null, heroUrl: null },
+      categories: [{ name: 'Wings &amp; Things', description: null, items: [{ name: '5pc Wings&amp;shrimp', description: null, priceCents: 1399, calories: null, imageUrl: null }] }],
+      sourceUrl: 'https://x.example/menu',
+    });
+    expect(parsed.name).toBe('Cajun Seafood & Grill');
+    expect(parsed.categories[0].name).toBe('Wings & Things');
+    expect(parsed.categories[0].items[0].name).toBe('5pc Wings&shrimp');
   });
 });
