@@ -217,9 +217,19 @@ they describe. `drainWebhookEvents()` runs immediately after an enqueue, and
 `Authorization: Bearer $CRON_SECRET`). Retries back off exponentially to an
 hour and abandon at `max_attempts`.
 
-> **Not yet wired:** no scheduler calls the drain endpoint. Point pg_cron or a
-> Vercel cron job at it before relying on retries — an outbox nobody drains
-> looks like delivery and is silence.
+`vercel.json` schedules the drain. **The schedule is tier-dependent:** Vercel
+Hobby permits one cron invocation per day and rejects anything more frequent
+at deploy time, so it is set to `0 0 * * *`. On Pro, change it to `*/5 * * * *`
+— every five minutes is ample, since the drain also runs inline immediately
+after each enqueue and the cron is only the retry path.
+
+> **What daily retries mean in practice:** a CRM webhook that fails at 9am is
+> not retried until midnight. Orders are unaffected (the outbox is written in
+> the same transaction as the order), but a restaurant's CRM could be a day
+> behind after an outage. Move to Pro and `*/5 * * * *` before that matters.
+
+> Hobby is also licensed for non-commercial use only. Running a paid SaaS on
+> it is a plan violation regardless of whether the crons work.
 
 ## Getting started
 
