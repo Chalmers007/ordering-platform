@@ -583,9 +583,12 @@ export type Database = {
           name: string
           prep_time_mins: number | null
           price_cents: number
+          scraped_at: string | null
           sku: string | null
           slug: string
           sort_order: number
+          source: string
+          source_url: string | null
           spice_level: number | null
           stock_quantity: number | null
           tenant_id: string
@@ -609,9 +612,12 @@ export type Database = {
           name: string
           prep_time_mins?: number | null
           price_cents: number
+          scraped_at?: string | null
           sku?: string | null
           slug: string
           sort_order?: number
+          source?: string
+          source_url?: string | null
           spice_level?: number | null
           stock_quantity?: number | null
           tenant_id: string
@@ -635,9 +641,12 @@ export type Database = {
           name?: string
           prep_time_mins?: number | null
           price_cents?: number
+          scraped_at?: string | null
           sku?: string | null
           slug?: string
           sort_order?: number
+          source?: string
+          source_url?: string | null
           spice_level?: number | null
           stock_quantity?: number | null
           tenant_id?: string
@@ -1450,6 +1459,7 @@ export type Database = {
           id: string
           legal_name: string | null
           locale: string
+          menu_verified_at: string | null
           name: string
           onboarded_at: string | null
           slug: string
@@ -1474,6 +1484,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           locale?: string
+          menu_verified_at?: string | null
           name: string
           onboarded_at?: string | null
           slug: string
@@ -1498,6 +1509,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           locale?: string
+          menu_verified_at?: string | null
           name?: string
           onboarded_at?: string | null
           slug?: string
@@ -1830,6 +1842,7 @@ export type Database = {
           id: string
           legal_name: string | null
           locale: string
+          menu_verified_at: string | null
           name: string
           onboarded_at: string | null
           slug: string
@@ -1861,6 +1874,40 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: Json
+      }
+      confirm_menu: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          claim_token: string | null
+          claim_token_expires_at: string | null
+          claimed_at: string | null
+          created_at: string
+          currency: string
+          id: string
+          legal_name: string | null
+          locale: string
+          menu_verified_at: string | null
+          name: string
+          onboarded_at: string | null
+          slug: string
+          status: Database["public"]["Enums"]["tenant_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: Database["public"]["Enums"]["subscription_status"]
+          support_email: string | null
+          support_phone: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
+          timezone: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_order_direct: {
         Args: {
@@ -1963,6 +2010,10 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_member: { Args: { p_tenant_id: string }; Returns: boolean }
       is_tenant_owner: { Args: { p_tenant_id: string }; Returns: boolean }
+      issue_claim_token: {
+        Args: { p_tenant_id: string; p_ttl_days?: number }
+        Returns: string
+      }
       open_checkout_session: {
         Args: {
           p_cart: Json
@@ -2023,6 +2074,7 @@ export type Database = {
           id: string
           legal_name: string | null
           locale: string
+          menu_verified_at: string | null
           name: string
           onboarded_at: string | null
           slug: string

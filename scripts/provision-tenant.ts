@@ -19,6 +19,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import type { ParsedRestaurant } from '../src/lib/scraper/schema';
 import type { Database } from '../src/types/database.ts';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -148,8 +149,12 @@ type ItemSeed = {
   slug: string;
   description: string;
   price_cents: number;
-  groups: string[];
+  /** Fixture items attach modifier groups; a parsed menu has none. */
+  groups?: string[];
   dietary_tags?: string[];
+  /** 'scraped' makes the database stage the item unavailable until confirmed. */
+  source?: 'owner' | 'seed' | 'scraped';
+  source_url?: string;
 };
 
 const CATEGORIES: { name: string; slug: string; description: string; items: ItemSeed[] }[] = [
@@ -189,11 +194,46 @@ const CATEGORIES: { name: string; slug: string; description: string; items: Item
 ];
 
 /**
+ * Turn a parsed (scraped) menu into the shape seedMenu writes.
+ *
+ * The fixture below is a demo restaurant — the same pizzas for every tenant.
+ * That is right for a local smoke test and wrong for a real storefront, so
+ * provisioning now takes a menu when it has one and falls back to the fixture
+ * when it does not.
+ *
+ * No modifier groups are attached: sizes, crusts and toppings are structure a
+ * menu page rarely states unambiguously, and inventing a required "Size"
+ * option with prices nobody quoted would put words in the restaurant's mouth.
+ * An owner adds those after claiming.
+ *
+ * Every item carries `source: 'scraped'`, which the database trigger uses to
+ * force it unavailable until the menu is confirmed. See migration
+ * 20260903001100_scraper_staging.sql.
+ */
+export function categoriesFromParsed(
+  parsed: ParsedRestaurant,
+): { name: string; slug: string; description: string; items: ItemSeed[] }[] {
+  return parsed.categories.map((category) => ({
+    name: category.name,
+    slug: slugify(category.name),
+    description: category.description ?? '',
+    items: category.items.map((item) => ({
+      name: item.name,
+      slug: slugify(item.name),
+      description: item.description ?? '',
+      price_cents: item.priceCents,
+      source: 'scraped' as const,
+      source_url: parsed.sourceUrl,
+    })),
+  }));
+}
+
+/**
  * Groups and options have no natural unique key beyond their id, so they
  * are matched by name within the tenant. That keeps re-running the script
  * idempotent without inventing slugs the schema does not have.
  */
-async function seedMenu(tenantId: string): Promise<void> {
+async function seedMenu(tenantId: string, categories = CATEGORIES): Promise<void> {
   const groupIds = new Map<string, string>();
 
   for (const group of GROUPS) {
@@ -254,7 +294,7 @@ async function seedMenu(tenantId: string): Promise<void> {
   let itemCount = 0;
   let linkCount = 0;
 
-  for (const [categoryIndex, category] of CATEGORIES.entries()) {
+  for (const [categoryIndex, category] of categories.entries()) {
     const { data: cat, error: catError } = await supabase
       .from('menu_categories')
       .upsert(
@@ -286,6 +326,10 @@ async function seedMenu(tenantId: string): Promise<void> {
             sort_order: itemIndex,
             is_taxable: true,
             dietary_tags: item.dietary_tags ?? [],
+            // Provenance travels with the row. A 'scraped' item is forced
+            // unavailable by the database until the owner confirms the menu.
+            source: item.source ?? 'seed',
+            source_url: item.source_url ?? null,
           },
           { onConflict: 'tenant_id,slug' },
         )
@@ -295,7 +339,8 @@ async function seedMenu(tenantId: string): Promise<void> {
       if (itemError || !row) throw new Error(`Item "${item.name}": ${itemError?.message}`);
       itemCount += 1;
 
-      for (const [groupIndex, groupName] of item.groups.entries()) {
+        // A parsed menu carries no modifier groups; only the fixture does.
+      for (const [groupIndex, groupName] of (item.groups ?? []).entries()) {
         const groupId = groupIds.get(groupName);
         if (!groupId) throw new Error(`Unknown group "${groupName}" on ${item.name}`);
 
