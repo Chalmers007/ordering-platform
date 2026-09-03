@@ -63,9 +63,17 @@ export async function requireSuperAdmin(): Promise<AdminGuardResult> {
  * the header it comes from is set by the proxy only after verifying the
  * signed cookie against that same user. RLS still governs every read.
  */
-export async function resolveStaffTenantId(): Promise<
-  { tenantId: string; impersonating: boolean } | null
-> {
+export type StaffContext = {
+  tenantId: string;
+  impersonating: boolean;
+  /** Owners may change money and connect gateways; staff may not. RLS and
+   *  the column guard triggers enforce it — this is so the UI can say so
+   *  instead of letting someone fill in a form that will be refused. */
+  canManage: boolean;
+  role: 'super_admin' | 'tenant_owner' | 'tenant_staff';
+};
+
+export async function resolveStaffTenantId(): Promise<StaffContext | null> {
   const supabase = await createClientForRequest();
 
   const {
@@ -83,12 +91,19 @@ export async function resolveStaffTenantId(): Promise<
 
   if (profile.role === 'super_admin') {
     const impersonated = (await headers()).get(IMPERSONATION_HEADER);
-    return impersonated ? { tenantId: impersonated, impersonating: true } : null;
+    return impersonated
+      ? { tenantId: impersonated, impersonating: true, canManage: true, role: 'super_admin' }
+      : null;
   }
 
   if (!profile.tenant_id || !['tenant_owner', 'tenant_staff'].includes(profile.role)) {
     return null;
   }
 
-  return { tenantId: profile.tenant_id, impersonating: false };
+  return {
+    tenantId: profile.tenant_id,
+    impersonating: false,
+    canManage: profile.role === 'tenant_owner',
+    role: profile.role as 'tenant_owner' | 'tenant_staff',
+  };
 }

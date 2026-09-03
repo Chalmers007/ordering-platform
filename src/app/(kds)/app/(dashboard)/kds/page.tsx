@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import { Toaster } from 'sonner';
 import { createClientForRequest } from '@/lib/supabase/server';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { KdsBoard } from '@/components/kds/kds-board';
@@ -47,14 +46,11 @@ export default async function KdsPage() {
   if (!tenant || !settings) notFound();
 
   return (
-    <>
-      <KdsBoard
+    <KdsBoard
         tenantId={tenant.id}
         restaurantName={tenant.name}
         timeZone={tenant.timezone}
-        initialSettings={settings as TenantSettings}
-      />
-      <Toaster position="top-right" richColors theme="dark" />
-    </>
+      initialSettings={settings as TenantSettings}
+    />
   );
 }

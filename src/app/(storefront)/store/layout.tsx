@@ -26,7 +26,13 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
   const { settings } = storefront;
 
   return (
-    <div className="min-h-dvh bg-neutral-50 text-neutral-900">
+    <div
+      className="min-h-dvh text-neutral-900"
+      style={{
+        background: 'var(--brand-background)',
+        fontFamily: 'var(--brand-font)',
+      }}
+    >
       {/*
         On :root rather than on this element. Radix portals dialogs to
         <body>, so variables scoped here would not reach the modifier modal
@@ -36,7 +42,12 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
       */}
       <style
         dangerouslySetInnerHTML={{
-          __html: brandStyleSheet(settings.brand_primary_color, settings.brand_accent_color),
+          __html: brandStyleSheet({
+            primary: settings.brand_primary_color,
+            accent: settings.brand_accent_color,
+            background: settings.background_color,
+            font: settings.font_family,
+          }),
         }}
       />
       <CartProvider

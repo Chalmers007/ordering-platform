@@ -1,21 +1,62 @@
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const FONT = /^[A-Za-z0-9 ]{2,48}$/;
 
-const FALLBACK_PRIMARY = '#111827';
-const FALLBACK_ACCENT = '#f97316';
+export const BRAND_DEFAULTS = {
+  primary: '#10B981',
+  accent: '#059669',
+  background: '#FFFFFF',
+  font: 'Inter',
+} as const;
 
 /**
- * Brand colours are tenant-controlled text. They are interpolated into a
- * stylesheet, so anything that is not a plain hex colour is discarded —
- * otherwise a restaurant could inject arbitrary CSS into its own storefront
- * (and, via a shared portal, into anything rendered above it).
+ * Brand values are tenant-controlled text that gets interpolated into a
+ * stylesheet. Anything that is not a plain hex colour — or, for the font, a
+ * bare family name — is discarded, because otherwise a restaurant could
+ * inject arbitrary CSS into its own storefront and, through a shared
+ * portal, into anything rendered above it.
+ *
+ * The database carries the same constraints; this is the second gate, not
+ * the only one.
  */
 export function safeHexColor(value: string | null | undefined, fallback: string): string {
   const candidate = (value ?? '').trim();
   return HEX.test(candidate) ? candidate : fallback;
 }
 
-/** The `:root` override for one tenant. Emitted as a <style> tag so the
- *  variables reach portalled content, which a wrapper element cannot. */
-export function brandStyleSheet(primary: string | null, accent: string | null): string {
-  return `:root{--brand-primary:${safeHexColor(primary, FALLBACK_PRIMARY)};--brand-accent:${safeHexColor(accent, FALLBACK_ACCENT)};}`;
+export function safeFontFamily(value: string | null | undefined, fallback: string): string {
+  const candidate = (value ?? '').trim();
+  return FONT.test(candidate) ? candidate : fallback;
+}
+
+export type BrandInput = {
+  primary: string | null;
+  accent: string | null;
+  background?: string | null;
+  font?: string | null;
+};
+
+/**
+ * The `:root` override for one tenant.
+ *
+ * Emitted as a <style> tag rather than an inline style on a wrapper,
+ * because Radix renders dialogs into a portal on <body> — a variable
+ * scoped to a layout element never reaches them, and every portalled
+ * button silently loses its background.
+ */
+export function brandStyleSheet(brand: BrandInput): string {
+  const primary = safeHexColor(brand.primary, BRAND_DEFAULTS.primary);
+  const accent = safeHexColor(brand.accent, BRAND_DEFAULTS.accent);
+  const background = safeHexColor(brand.background, BRAND_DEFAULTS.background);
+  const font = safeFontFamily(brand.font, BRAND_DEFAULTS.font);
+
+  return [
+    ':root{',
+    `--brand-primary:${primary};`,
+    `--brand-accent:${accent};`,
+    `--brand-background:${background};`,
+    // A real stack, not a bare name: the tenant's choice may not be
+    // installed on the visitor's device.
+    `--brand-font:"${font}",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;`,
+    '}',
+  ].join('');
 }
