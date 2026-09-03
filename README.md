@@ -240,8 +240,28 @@ subdomains, so TLS fails before a request is ever made.
 
 ### DNS
 
-Two records, at whichever provider holds the zone (`vardros.com` is on
-IONOS nameservers, so Vercel cannot create these itself):
+**Live at `order.vardrsystems.com`** — that zone is on Vercel nameservers, so
+adding the domain and its wildcard provisions both the records and the
+certificate automatically, with nothing to do at a registrar.
+
+`order.vardros.com` is also attached to the project but is NOT serving: its
+zone is on third-party (IONOS) nameservers, and Vercel can only issue a
+**wildcard** certificate for a zone it controls, because wildcards require
+DNS-01 validation. `vercel certs issue '*.order.vardros.com'` fails with
+`Failed to set DNS record for vardros.com (400)` — Vercel trying, and being
+refused, to write the `_acme-challenge` record.
+
+To move to it, delegate the subzone at IONOS (and add no A/CNAME for
+`order`, since Vercel will manage them):
+
+    order  NS  ns1.vercel-dns.com
+    order  NS  ns2.vercel-dns.com
+
+Then set `NEXT_PUBLIC_ROOT_DOMAIN=order.vardros.com` and redeploy. Only one
+domain can be the root at a time — the other resolves as a custom domain and
+finds no tenant.
+
+Two records, if you are instead wiring a zone you control by hand:
 
 | Type | Name | Value |
 | --- | --- | --- |
