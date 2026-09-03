@@ -56,6 +56,8 @@ declare
   v_settings              public.tenant_settings%rowtype;
   v_prep_time             integer;
   v_new_tracking_token    uuid;
+  v_lines                 jsonb;
+  v_idx                   integer;
 begin
   select * into v_tenant from public.tenants where id = p_tenant_id for update;
   if not found or v_tenant.status <> 'active' then
@@ -82,10 +84,10 @@ begin
   -- First-time customer is decided by prior *placed* orders on this
   -- tenant for this phone number, before the new row exists.
   select not exists (
-    select 1 from public.orders o
-    where o.tenant_id = p_tenant_id
-      and o.customer_phone = p_customer_phone
-      and o.status <> 'draft'
+    select 1 from public.orders
+    where tenant_id = p_tenant_id
+      and customer_phone = p_customer_phone
+      and status <> 'draft'
   ) into v_first_time;
 
   v_new_tracking_token := gen_random_uuid();
@@ -126,8 +128,11 @@ begin
   end if;
 
   -- ---- line items ---------------------------------------------------
-  for v_line in select jsonb_array_elements(v_cart -> 'lines')
+  v_lines := v_cart -> 'lines';
+  for v_idx in 0..(jsonb_array_length(v_lines) - 1)
   loop
+    v_line := v_lines -> v_idx;
+
     insert into public.order_items (
       tenant_id, order_id, menu_item_id, name_snapshot,
       unit_price_cents, quantity, modifiers_total_cents, line_total_cents,
@@ -157,7 +162,7 @@ begin
     v_sort := v_sort + 1;
   end loop;
 
-  -- ---- dispatch row -------------------------------------------------
+  -- ---- delivery row -------------------------------------------------
   -- Created unassigned. The auto-dispatch handler fills in external_ref.
   if p_fulfillment_type = 'delivery' then
     insert into public.deliveries (tenant_id, order_id, status)
