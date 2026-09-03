@@ -46,6 +46,7 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
         <StorefrontHeader
           tenantName={storefront.tenant.name}
           logoUrl={settings.logo_url}
+          coverImageUrl={settings.cover_image_url}
           tagline={settings.tagline}
           currency={storefront.tenant.currency}
         />
@@ -55,7 +56,7 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
           initialReason={settings.kitchen_paused_reason}
           initialPrepMins={settings.estimated_prep_time_mins}
         />
-        <main className="mx-auto w-full max-w-5xl px-4 pb-32">{children}</main>
+        <main className="mx-auto w-full max-w-6xl px-4 pb-32">{children}</main>
       </CartProvider>
       <Toaster position="top-center" richColors />
     </div>

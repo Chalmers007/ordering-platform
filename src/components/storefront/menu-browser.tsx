@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { formatCents } from '@/lib/money';
 import { menuImageUrl } from '@/lib/storefront/menu-image';
 import { useCart } from '@/lib/cart/cart-context';
@@ -14,6 +13,8 @@ import type {
   MenuCategoryWithItems,
   MenuItemWithModifiers,
 } from '@/types/database';
+
+const ALL = 'all';
 
 export function MenuBrowser({
   categories,
@@ -32,26 +33,28 @@ export function MenuBrowser({
 }) {
   const { addLine, cart, setFulfillment } = useCart();
   const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>(ALL);
   const [activeItem, setActiveItem] = useState<MenuItemWithModifiers | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  const filtered = useMemo(() => {
+  const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return categories;
 
     return categories
+      .filter((category) => activeCategory === ALL || category.id === activeCategory)
       .map((category) => ({
         ...category,
-        menu_items: category.menu_items.filter((item) =>
-          [item.name, item.description ?? '', ...(item.dietary_tags ?? [])]
-            .join(' ')
-            .toLowerCase()
-            .includes(needle),
-        ),
+        menu_items: needle
+          ? category.menu_items.filter((item) =>
+              [item.name, item.description ?? '', ...(item.dietary_tags ?? [])]
+                .join(' ')
+                .toLowerCase()
+                .includes(needle),
+            )
+          : category.menu_items,
       }))
       .filter((category) => category.menu_items.length > 0);
-  }, [categories, query]);
+  }, [categories, query, activeCategory]);
 
   function openItem(item: MenuItemWithModifiers) {
     if (!canOrder) {
@@ -60,7 +63,9 @@ export function MenuBrowser({
     }
     if (!item.is_available) return;
 
-    // No options to choose: straight into the cart.
+    // Nothing to choose: straight into the cart. Anything with options —
+    // including a required size — has to go through the modal, because the
+    // server will refuse to price a pizza with no size.
     const hasGroups = item.menu_item_modifier_groups.some(
       (link) => link.menu_modifier_groups.is_active,
     );
@@ -75,13 +80,13 @@ export function MenuBrowser({
   }
 
   return (
-    <div className="pt-4">
-      {/* Fulfilment switch */}
+    <div className="pt-2">
+      {/* Fulfilment */}
       {acceptsDelivery && acceptsPickup ? (
         <div
           role="radiogroup"
           aria-label="Order type"
-          className="mb-4 inline-flex rounded-lg border border-neutral-300 bg-white p-1"
+          className="mb-4 inline-flex rounded-full border border-neutral-300 bg-white p-1"
         >
           {(['delivery', 'pickup'] as const).map((mode) => (
             <button
@@ -89,9 +94,9 @@ export function MenuBrowser({
               role="radio"
               aria-checked={cart.fulfillmentType === mode}
               onClick={() => setFulfillment(mode)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors ${
+              className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
                 cart.fulfillmentType === mode
-                  ? 'bg-[var(--brand-primary)] text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
@@ -119,7 +124,7 @@ export function MenuBrowser({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search the menu"
           aria-label="Search the menu"
-          className="pl-9 pr-9"
+          className="rounded-full pl-9 pr-9"
         />
         {query ? (
           <button
@@ -132,49 +137,44 @@ export function MenuBrowser({
         ) : null}
       </div>
 
-      {/* Category rail — horizontally scrollable on phones */}
-      {filtered.length > 1 ? (
-        <nav
-          aria-label="Menu categories"
-          className="sticky top-[57px] z-20 -mx-4 mb-2 overflow-x-auto border-b border-neutral-200 bg-neutral-50/95 px-4 py-2 backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <ul className="flex gap-2">
-            {filtered.map((category) => (
+      {/* Category filter pills. Names come from the tenant's own menu and are
+          upper-cased in CSS, never hardcoded. */}
+      <nav
+        aria-label="Menu categories"
+        className="sticky top-0 z-20 -mx-4 mb-4 overflow-x-auto bg-neutral-50/95 px-4 py-2 backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <ul className="flex gap-2">
+          {[{ id: ALL, name: 'All' }, ...categories].map((category) => {
+            const active = activeCategory === category.id;
+            return (
               <li key={category.id}>
                 <button
-                  onClick={() =>
-                    sectionRefs.current[category.id]?.scrollIntoView({
-                      behavior: 'smooth',
-                      block: 'start',
-                    })
-                  }
-                  className="whitespace-nowrap rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 text-sm font-medium text-neutral-700 hover:border-neutral-400"
+                  onClick={() => setActiveCategory(category.id)}
+                  aria-pressed={active}
+                  className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium uppercase tracking-wide transition ${
+                    active
+                      ? 'bg-blue-600 text-white'
+                      : 'border border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400'
+                  }`}
                 >
                   {category.name}
                 </button>
               </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
+            );
+          })}
+        </ul>
+      </nav>
 
-      {filtered.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="py-16 text-center text-neutral-500">
           {query.trim()
             ? `Nothing on the menu matches “${query.trim()}”.`
-            : 'This menu is not available right now.'}
+            : 'Nothing on the menu right now.'}
         </p>
       ) : null}
 
-      {filtered.map((category) => (
-        <section
-          key={category.id}
-          ref={(node) => {
-            sectionRefs.current[category.id] = node;
-          }}
-          className="scroll-mt-32 py-4"
-          aria-labelledby={`cat-${category.id}`}
-        >
+      {visible.map((category) => (
+        <section key={category.id} className="pb-6" aria-labelledby={`cat-${category.id}`}>
           <h2 id={`cat-${category.id}`} className="text-lg font-semibold">
             {category.name}
           </h2>
@@ -182,66 +182,77 @@ export function MenuBrowser({
             <p className="mt-0.5 text-sm text-neutral-600">{category.description}</p>
           ) : null}
 
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {category.menu_items.map((item) => {
               const image = menuImageUrl(item.image_path);
               const soldOut = !item.is_available;
+              const disabled = soldOut || !canOrder;
 
               return (
-                <li key={item.id}>
-                  <button
-                    onClick={() => openItem(item)}
-                    disabled={soldOut || !canOrder}
-                    aria-label={`${item.name}, ${formatCents(item.price_cents, currency)}${soldOut ? ', sold out' : ''}`}
-                    className={`flex w-full items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-left transition-colors ${
-                      soldOut || !canOrder
-                        ? 'cursor-not-allowed opacity-55'
-                        : 'hover:border-neutral-300 hover:bg-neutral-50'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="truncate font-medium">{item.name}</h3>
-                        {soldOut ? (
-                          <span className="shrink-0 rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
-                            Sold out
-                          </span>
-                        ) : null}
-                      </div>
-                      {item.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-sm text-neutral-600">
-                          {item.description}
-                        </p>
-                      ) : null}
-                      <p className="mt-1.5 text-sm font-semibold tabular-nums">
-                        {formatCents(item.price_cents, currency)}
-                      </p>
-                      {item.dietary_tags?.length ? (
-                        <ul className="mt-1.5 flex flex-wrap gap-1">
-                          {item.dietary_tags.map((tag) => (
-                            <li
-                              key={tag}
-                              className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-600"
-                            >
-                              {tag}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
+                <li
+                  key={item.id}
+                  className={`relative flex gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition ${
+                    disabled ? 'opacity-60' : 'hover:shadow-md'
+                  }`}
+                >
+                  {image ? (
+                    <Image
+                      src={image}
+                      alt=""
+                      width={96}
+                      height={96}
+                      className="h-24 w-24 flex-shrink-0 rounded-lg object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div
+                      className="h-24 w-24 flex-shrink-0 rounded-lg bg-neutral-100"
+                      aria-hidden
+                    />
+                  )}
 
-                    {image ? (
-                      <Image
-                        src={image}
-                        alt=""
-                        width={88}
-                        height={88}
-                        className="h-22 w-22 shrink-0 rounded-lg object-cover"
-                        style={{ height: 88, width: 88 }}
-                        unoptimized
-                      />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <h3 className="font-semibold leading-snug">
+                      {/*
+                        Stretched link: the pseudo-element covers the whole
+                        card so the entire tile is tappable, while the Add
+                        button below sits above it on z-10. Wrapping the card
+                        in a <button> instead would nest one button inside
+                        another, which is invalid and breaks keyboard users.
+                      */}
+                      <button
+                        onClick={() => openItem(item)}
+                        disabled={disabled}
+                        className="text-left after:absolute after:inset-0 after:content-[''] disabled:cursor-not-allowed"
+                      >
+                        {item.name}
+                      </button>
+                    </h3>
+
+                    {soldOut ? (
+                      <span className="mt-1 w-fit rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+                        Sold out
+                      </span>
+                    ) : item.description ? (
+                      <p className="mt-0.5 line-clamp-2 text-sm text-neutral-500">
+                        {item.description}
+                      </p>
                     ) : null}
-                  </button>
+
+                    <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                      <span className="font-bold tabular-nums">
+                        {formatCents(item.price_cents, currency)}
+                      </span>
+                      <button
+                        onClick={() => openItem(item)}
+                        disabled={disabled}
+                        aria-label={`Add ${item.name}`}
+                        className="relative z-10 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  </div>
                 </li>
               );
             })}
@@ -259,12 +270,6 @@ export function MenuBrowser({
           toast.success('Added to your order');
         }}
       />
-
-      {!canOrder ? (
-        <Button className="sr-only" disabled>
-          Ordering is paused
-        </Button>
-      ) : null}
     </div>
   );
 }

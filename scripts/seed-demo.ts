@@ -224,6 +224,54 @@ async function seedImages(): Promise<void> {
   }
 }
 
+/**
+ * Brand assets: the hero cover and the circular badge logo.
+ *
+ * Uploaded to `brand-assets`, whose storage policy keys isolation off the
+ * first path segment being the tenant id — so the path shape matters.
+ */
+async function seedBrandAssets(): Promise<void> {
+  console.log('\nBrand assets');
+
+  const assets: {
+    path: string;
+    png: Buffer;
+    column: 'cover_image_url' | 'logo_url';
+  }[] = [
+    {
+      path: `${TENANT_ID}/cover.png`,
+      png: makePng(640, [158, 78, 46], [92, 34, 30]),
+      column: 'cover_image_url',
+    },
+    {
+      path: `${TENANT_ID}/logo.png`,
+      png: makePng(240, [244, 214, 160], [201, 88, 61]),
+      column: 'logo_url',
+    },
+  ];
+
+  for (const asset of assets) {
+    const { error: uploadError } = await supabase.storage
+      .from('brand-assets')
+      .upload(asset.path, asset.png, { contentType: 'image/png', upsert: true });
+
+    if (uploadError) throw new Error(`Could not upload ${asset.path}: ${uploadError.message}`);
+
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/brand-assets/${asset.path}`;
+    const settingsUpdate =
+      asset.column === 'cover_image_url'
+        ? { cover_image_url: publicUrl }
+        : { logo_url: publicUrl };
+    const { error: linkError } = await supabase
+      .from('tenant_settings')
+      .update(settingsUpdate)
+      .eq('tenant_id', TENANT_ID);
+
+    if (linkError) throw new Error(`Could not link ${asset.column}: ${linkError.message}`);
+    console.log(`  ${(asset.png.length / 1024).toFixed(1).padStart(6)} KB  ${asset.path}`);
+  }
+}
+
 async function verify(): Promise<void> {
   const [{ count: items }, { count: withImages }, { data: settings }, { data: objects }] =
     await Promise.all([
@@ -244,6 +292,8 @@ async function verify(): Promise<void> {
   console.log(`  tech_fee_enabled           ${settings?.tech_fee_enabled}`);
   console.log(`  tech_fee_cents             ${settings?.tech_fee_cents}`);
   console.log(`  estimated_prep_time_mins   ${settings?.estimated_prep_time_mins}`);
+  console.log(`  cover image                ${settings?.cover_image_url ? 'linked' : 'MISSING'}`);
+  console.log(`  logo                       ${settings?.logo_url ? 'linked' : 'MISSING'}`);
 
   if (withImages !== items) throw new Error('Some menu items have no image linked');
   if (!settings?.tech_fee_enabled || settings.tech_fee_cents !== 100) {
@@ -267,6 +317,7 @@ async function main(): Promise<void> {
 
   console.log(`Seeding demo data for ${tenant.name} (${tenant.slug}, ${tenant.status})`);
   await seedUsers();
+  await seedBrandAssets();
   await seedImages();
   await verify();
 
