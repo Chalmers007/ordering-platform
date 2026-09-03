@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       audit_logs: {
@@ -468,6 +463,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "menu_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_item_external_refs: {
+        Row: {
+          created_at: string
+          external_id: string
+          id: string
+          menu_item_id: string
+          provider: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_id: string
+          id?: string
+          menu_item_id: string
+          provider: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          menu_item_id?: string
+          provider?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_external_refs_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_item_external_refs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1185,6 +1225,44 @@ export type Database = {
           },
         ]
       }
+      tenant_external_stores: {
+        Row: {
+          created_at: string
+          external_store_id: string
+          id: string
+          is_active: boolean
+          provider: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_store_id: string
+          id?: string
+          is_active?: boolean
+          provider: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_store_id?: string
+          id?: string
+          is_active?: boolean
+          provider?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_external_stores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_order_counters: {
         Row: {
           last_number: number
@@ -1689,6 +1767,18 @@ export type Database = {
         }
         Returns: string
       }
+      apply_menu_availability_event: {
+        Args: {
+          p_available: boolean
+          p_event_id: string
+          p_event_type: string
+          p_external_id: string
+          p_payload: Json
+          p_provider: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
       assign_tenant_owner: {
         Args: {
           p_email?: string
@@ -1771,6 +1861,29 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: Json
+      }
+      create_order_direct: {
+        Args: {
+          p_customer_email?: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_delivery_address_line1?: string
+          p_delivery_address_line2?: string
+          p_delivery_city?: string
+          p_delivery_country?: string
+          p_delivery_instructions?: string
+          p_delivery_latitude?: number
+          p_delivery_longitude?: number
+          p_delivery_postal_code?: string
+          p_delivery_region?: string
+          p_fulfillment_type?: Database["public"]["Enums"]["fulfillment_type"]
+          p_priced_cart: Json
+          p_tenant_id: string
+        }
+        Returns: {
+          order_id: string
+          tracking_token: string
+        }[]
       }
       create_order_from_checkout: {
         Args: {
@@ -1932,42 +2045,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      record_dispatch_reference:
-        | {
-            Args: {
-              p_estimated_delivery_at?: string
-              p_estimated_pickup_at?: string
-              p_external_ref: string
-              p_order_id: string
-              p_status?: Database["public"]["Enums"]["delivery_status"]
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_estimated_delivery_at?: string
-              p_estimated_pickup_at?: string
-              p_external_ref: string
-              p_order_id: string
-              p_status?: Database["public"]["Enums"]["delivery_status"]
-              p_tracking_url?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_courier_name?: string
-              p_courier_phone?: string
-              p_estimated_delivery_at?: string
-              p_estimated_pickup_at?: string
-              p_external_ref: string
-              p_order_id: string
-              p_provider?: string
-              p_status?: Database["public"]["Enums"]["delivery_status"]
-              p_tracking_url?: string
-            }
-            Returns: undefined
-          }
+      record_dispatch_reference: {
+        Args: {
+          p_courier_name?: string
+          p_courier_phone?: string
+          p_estimated_delivery_at?: string
+          p_estimated_pickup_at?: string
+          p_external_ref: string
+          p_order_id: string
+          p_provider?: string
+          p_status?: Database["public"]["Enums"]["delivery_status"]
+          p_tracking_url?: string
+        }
+        Returns: undefined
+      }
       resolve_checkout_order: {
         Args: { p_session_id: string }
         Returns: {
@@ -2145,12 +2236,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2174,11 +2265,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2199,11 +2290,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2224,11 +2315,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2241,11 +2332,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2335,3 +2426,4 @@ export const Constants = {
     },
   },
 } as const
+
