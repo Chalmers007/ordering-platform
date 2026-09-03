@@ -231,6 +231,42 @@ after each enqueue and the cron is only the retry path.
 > Hobby is also licensed for non-commercial use only. Running a paid SaaS on
 > it is a plan violation regardless of whether the crons work.
 
+## Deploying
+
+The platform IS its subdomains, so a wildcard domain is not optional. It
+cannot run on a `*.vercel.app` URL: `admin.<project>.vercel.app` resolves,
+but Vercel's `*.vercel.app` certificate does not cover second-level
+subdomains, so TLS fails before a request is ever made.
+
+### DNS
+
+Two records, at whichever provider holds the zone (`vardros.com` is on
+IONOS nameservers, so Vercel cannot create these itself):
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `order` | `76.76.21.21` |
+| A | `*.order` | `76.76.21.21` |
+
+The wildcard is what serves every tenant storefront. Without it only the
+apex resolves, and the apex immediately redirects to `admin.` — so nothing
+is reachable.
+
+Vercel verifies automatically once the records propagate and then issues
+certificates, including for the wildcard.
+
+### Environment
+
+`NEXT_PUBLIC_ROOT_DOMAIN` is inlined into the client bundle at build time,
+so changing it requires a **redeploy**, not just an env update.
+
+> **Do not put placeholder values in the Stripe keys.** The code checks
+> whether they are present, not whether they are real: a fake
+> `STRIPE_SECRET_KEY` turns a clear "missing environment variable" at boot
+> into an authentication failure deep inside a customer's checkout, after
+> the cart has been priced. Leave them unset until you have live keys —
+> everything except checkout and the payment webhook works without them.
+
 ## Getting started
 
 ```bash
