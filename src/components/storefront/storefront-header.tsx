@@ -7,9 +7,21 @@ import { useCart } from '@/lib/cart/cart-context';
 import { Button } from '@/components/ui/button';
 import { CartDrawer } from './cart-drawer';
 
-/** Shipped with the app rather than hot-linked, so a storefront never
- *  depends on someone else's image host staying up. */
-const FALLBACK_COVER = '/storefront-cover-fallback.png';
+/**
+ * Up to two initials from the trading name.
+ *
+ * "Cajun Seafood Jacksonville" gives CS, not C. A single letter on a circle
+ * reads as a missing asset; two reads as a mark somebody chose. Joining words
+ * are skipped, so "The Harbour Grill" is HG rather than TH.
+ */
+function monogram(name: string): string {
+  const words = name
+    .split(/[\s&/-]+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((w) => w.length > 0 && !['the', 'and', 'of', 'at', 'a'].includes(w.toLowerCase()));
+  if (words.length === 0) return '?';
+  return (words[0][0] + (words[1]?.[0] ?? '')).toUpperCase();
+}
 
 /**
  * Storefront hero.
@@ -42,19 +54,31 @@ export function StorefrontHeader({
     <>
       <header>
         <div className="relative h-48 w-full overflow-hidden md:h-64">
-          <Image
-            src={coverImageUrl || FALLBACK_COVER}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            unoptimized
-          />
-          {/* Keeps the logo and anything overlaid legible whatever the
-              restaurant uploads — a bright photo would otherwise wash it out. */}
-          <div className="absolute inset-0 bg-black/50" aria-hidden />
-        </div>
+            {coverImageUrl ? (
+              <>
+                <Image src={coverImageUrl} alt="" fill priority sizes="100vw" className="object-cover" unoptimized />
+                {/* Keeps the logo legible whatever the restaurant uploads. */}
+                <div className="absolute inset-0 bg-black/50" aria-hidden />
+              </>
+            ) : (
+              // No cover image. A stock photograph darkened to 50% read as a
+              // blank brown rectangle — worse than nothing, because it looked
+              // like something had failed to load. A restaurant with no artwork
+              // gets its own name and colours instead, which looks deliberate.
+              <div
+                className="absolute inset-0 flex items-center justify-center px-6"
+                style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)' }}
+              >
+                <div
+                  className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:22px_22px]"
+                  aria-hidden
+                />
+                <p className="relative max-w-3xl text-center text-2xl font-bold leading-tight tracking-tight text-white drop-shadow-sm md:text-4xl">
+                  {tenantName}
+                </p>
+              </div>
+            )}
+          </div>
 
         <div className="flex flex-col items-center px-4 pb-4 text-center">
           <div className="z-10 -mt-10">
@@ -69,12 +93,12 @@ export function StorefrontHeader({
               />
             ) : (
               <div
-                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white text-2xl font-bold shadow-lg"
-                style={{ color: 'var(--brand-primary)' }}
-                aria-hidden
-              >
-                {tenantName.slice(0, 1).toUpperCase()}
-              </div>
+                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white text-xl font-bold tracking-tight text-white shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)' }}
+                  aria-hidden
+                >
+                  {monogram(tenantName)}
+                </div>
             )}
           </div>
 

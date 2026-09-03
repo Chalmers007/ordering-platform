@@ -63,9 +63,10 @@ describe('ordering is refused while unclaimed', () => {
 
 describe('what the preview shows and hides', () => {
   it('states plainly that it is a preview and takes no orders', () => {
-    expect(BANNER).toMatch(/This is a preview of your ordering storefront\. Claim it to activate online ordering\./);
     expect(BANNER).toMatch(/Preview — not yet live/);
-    expect(BANNER).toMatch(/Claim This Storefront/);
+    expect(BANNER).toMatch(/This storefront was prepared for your restaurant/);
+    expect(BANNER).toMatch(/Nothing here can take an order or a payment yet/);
+    expect(BANNER).toMatch(/Activate My Storefront/);
   });
 
   it('never renders a claim token, tenant id, or internal field', () => {
@@ -118,5 +119,49 @@ describe('a signed-in visitor without access', () => {
     for (const leak of [/tenantId/, /tenant\.name/, /claim_token/, /slug/]) {
       expect(notice).not.toMatch(leak);
     }
+  });
+});
+
+describe('a preview looks like a demo, not an outage', () => {
+  const BROWSER = readFileSync('src/components/storefront/menu-browser.tsx', 'utf8');
+  const HEADER = readFileSync('src/components/storefront/storefront-header.tsx', 'utf8');
+
+  it('never labels an item Sold out merely because preview ordering is off', () => {
+    // Every scraped item is unavailable until the owner confirms the menu, but
+    // that is a fact about our staging process. Showing "Sold out" across a
+    // demo tells a prospect their own business is closed.
+    expect(BROWSER).toMatch(/const soldOut = !preview && !item\.is_available;/);
+    expect(BROWSER).toMatch(/const disabled = !preview && \(soldOut \|\| !canOrder\);/);
+  });
+
+  it('explains the disabled ordering when a card is pressed', () => {
+    const fn = BROWSER.slice(BROWSER.indexOf('function openItem'), BROWSER.indexOf('const hasGroups'));
+    // Checked FIRST: an unclaimed storefront also has canOrder false, and
+    // "this restaurant is not accepting orders" reads as the kitchen being shut.
+    expect(fn.indexOf('if (preview)')).toBeLessThan(fn.indexOf('if (!canOrder)'));
+    expect(fn).toMatch(/Ordering is disabled during this preview\. Activate your storefront to accept orders\./);
+  });
+
+  it('shows both calls to action with the agreed wording', () => {
+    const banner = readFileSync('src/components/storefront/preview-banner.tsx', 'utf8');
+    expect(banner).toMatch(/Preview — not yet live/);
+    expect(banner).toMatch(/This storefront was prepared for your restaurant\. Explore the menu and see how online\s*\n?\s*ordering could look\./);
+    expect(banner).toMatch(/Activate My Storefront/);
+    expect(banner).toMatch(/Book a Walkthrough/);
+  });
+
+  it('falls back to branded artwork rather than a blank hero or a single letter', () => {
+    // The stock cover darkened to 50% read as a blank brown rectangle, and a
+    // one-letter avatar reads as a missing asset.
+    expect(HEADER).toMatch(/function monogram\(name: string\)/);
+    expect(HEADER).not.toMatch(/FALLBACK_COVER/);
+    expect(HEADER).toMatch(/linear-gradient\(135deg, var\(--brand-primary\) 0%, var\(--brand-accent\) 100%\)/);
+    // The restaurant's name carries the hero when there is no photograph.
+    expect(HEADER).toMatch(/\{tenantName\}\s*\n\s*<\/p>/);
+  });
+
+  it('gives an item with no photograph a tinted tile, not a grey square', () => {
+    expect(BROWSER).not.toMatch(/className="h-24 w-24 flex-shrink-0 rounded-lg bg-neutral-100"/);
+    expect(BROWSER).toMatch(/color-mix\(in srgb, var\(--brand-primary\)/);
   });
 });

@@ -26,3 +26,15 @@ export async function isPreviewRequest(): Promise<boolean> {
 export function claimCtaHref(): string {
   return process.env.NEXT_PUBLIC_CLAIM_CTA_URL?.trim() || '/claim';
 }
+
+/**
+ * Where "Book a Walkthrough" goes.
+ *
+ * A separate destination because it is a different intention: one prospect is
+ * ready to buy, another wants to be shown around first, and sending both to the
+ * same page loses the second. Falls back to the activation route when no
+ * booking link is configured, so the button is never a dead end.
+ */
+export function walkthroughCtaHref(): string {
+  return process.env.NEXT_PUBLIC_WALKTHROUGH_URL?.trim() || claimCtaHref();
+}

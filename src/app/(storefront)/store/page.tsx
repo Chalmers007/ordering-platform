@@ -3,7 +3,7 @@ import { getTenantContext } from '@/lib/tenancy/context';
 import { loadStorefront, orderingAvailability } from '@/lib/storefront/data';
 import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
-import { isPreviewRequest, claimCtaHref } from '@/lib/storefront/preview';
+import { isPreviewRequest, claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +23,12 @@ export default async function StorefrontPage() {
   // relying on the others.
   return (
     <>
-      {preview && <PreviewBanner ctaHref={claimCtaHref()} />}
+      {preview && <PreviewBanner ctaHref={claimCtaHref()} walkthroughHref={walkthroughCtaHref()} />}
     <MenuBrowser
       categories={storefront.categories}
       currency={storefront.tenant.currency}
       canOrder={canOrder && !preview}
+      preview={preview}
       acceptsDelivery={storefront.settings.accepts_delivery}
       acceptsPickup={storefront.settings.accepts_pickup}
       deliveryMinimumCents={storefront.settings.delivery_minimum_cents}

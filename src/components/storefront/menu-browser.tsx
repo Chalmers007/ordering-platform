@@ -20,6 +20,7 @@ export function MenuBrowser({
   categories,
   currency,
   canOrder,
+  preview = false,
   acceptsDelivery,
   acceptsPickup,
   deliveryMinimumCents,
@@ -27,6 +28,16 @@ export function MenuBrowser({
   categories: MenuCategoryWithItems[];
   currency: string;
   canOrder: boolean;
+  /**
+   * A storefront that has been built but not claimed.
+   *
+   * Every item is deliberately unavailable in the database until the owner
+   * confirms the menu — but that is a fact about our staging process, not about
+   * the restaurant's kitchen. Showing "Sold out" across a demo tells a prospect
+   * their business is closed. In preview the cards look like a working menu and
+   * the buttons explain themselves when pressed.
+   */
+  preview?: boolean;
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   deliveryMinimumCents: number;
@@ -57,6 +68,14 @@ export function MenuBrowser({
   }, [categories, query, activeCategory]);
 
   function openItem(item: MenuItemWithModifiers) {
+    // Checked FIRST. An unclaimed storefront also has canOrder false, and
+    // "this restaurant is not accepting orders" is the wrong thing to tell a
+    // prospect looking at a demo of their own business — it reads as their
+    // kitchen being shut.
+    if (preview) {
+      toast('Ordering is disabled during this preview. Activate your storefront to accept orders.');
+      return;
+    }
     if (!canOrder) {
       toast.error('This restaurant is not accepting orders right now.');
       return;
@@ -185,8 +204,10 @@ export function MenuBrowser({
           <ul className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {category.menu_items.map((item) => {
               const image = menuImageUrl(item.image_path);
-              const soldOut = !item.is_available;
-              const disabled = soldOut || !canOrder;
+              // In preview, unavailability is our staging flag rather than the
+              // kitchen's word, so it is not surfaced and the card stays live.
+              const soldOut = !preview && !item.is_available;
+              const disabled = !preview && (soldOut || !canOrder);
 
               return (
                 <li
@@ -205,10 +226,26 @@ export function MenuBrowser({
                       unoptimized
                     />
                   ) : (
+                    // Most scraped menus carry no item photography, and a flat
+                    // grey square on every card reads as a page that failed to
+                    // load. A tinted tile in the restaurant's own colours reads
+                    // as a design choice instead.
                     <div
-                      className="h-24 w-24 flex-shrink-0 rounded-lg bg-neutral-100"
+                      className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-lg"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 14%, white) 0%, color-mix(in srgb, var(--brand-accent) 18%, white) 100%)',
+                      }}
                       aria-hidden
-                    />
+                    >
+                      <span
+                        className="text-lg font-semibold opacity-45"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        {item.name.replace(/^[\w.]+\.?\s*/, '').slice(0, 1).toUpperCase() ||
+                          item.name.slice(0, 1).toUpperCase()}
+                      </span>
+                    </div>
                   )}
 
                   <div className="flex min-w-0 flex-1 flex-col">
