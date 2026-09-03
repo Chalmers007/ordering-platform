@@ -46,6 +46,53 @@ export function __resetUberTokenCache(): void {
  * The 60-second shave matters: a token that expires mid-flight turns a
  * dispatch into a 401 and an order nobody is delivering.
  */
+/**
+ * One token request for a specific scope, uncached.
+ *
+ * Exists so the courier health check can establish WHICH scope an Uber app
+ * is actually granted — `invalid_scope` with valid credentials is an app
+ * configuration problem, and guessing between the two candidates one
+ * deploy at a time is not a diagnosis.
+ */
+export async function probeUberScope(
+  scope: string,
+): Promise<{ ok: boolean; status: number; code: string }> {
+  const clientId = process.env.UBER_DIRECT_CLIENT_ID;
+  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return { ok: false, status: 0, code: 'credentials_missing' };
+
+  const params: Record<string, string> = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'client_credentials',
+  };
+  // An empty scope is a legitimate probe: it asks the server for whatever
+  // the app is granted by default.
+  if (scope) params.scope = scope;
+
+  try {
+    const response = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (response.ok) return { ok: true, status: response.status, code: 'granted' };
+
+    let code = 'unknown_error';
+    try {
+      const parsed = (await response.json()) as { error?: string };
+      if (typeof parsed.error === 'string') code = parsed.error;
+    } catch {
+      // Non-JSON; the status carries the signal.
+    }
+    return { ok: false, status: response.status, code };
+  } catch (error) {
+    return { ok: false, status: 0, code: error instanceof Error ? error.message : 'request_failed' };
+  }
+}
+
 export async function getUberAccessToken(now: number = Date.now()): Promise<string> {
   if (cached && cached.expiresAt > now) return cached.token;
 
@@ -67,15 +114,35 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
       client_id: clientId,
       client_secret: clientSecret,
       grant_type: 'client_credentials',
-      scope: 'eats.deliveries',
+      // Scope differs by account type: Uber Direct apps are granted
+      // `direct.organizations`, while `eats.deliveries` belongs to Uber
+      // Eats marketplace integrations. Getting it wrong returns
+      // invalid_scope with otherwise-valid credentials, which reads like a
+      // credential problem and is not one.
+      scope: process.env.UBER_DIRECT_SCOPE ?? 'direct.organizations',
     }),
     signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
-    // The body can contain the client_secret echoed back in an error;
-    // never surface it.
-    throw new UberDirectError('Could not authenticate with the courier', response.status, response.status >= 500);
+    // The body can echo the client_secret back in an error, so it is never
+    // surfaced wholesale. The OAuth `error` field is a fixed code
+    // (invalid_client, invalid_scope, unauthorized_client) and carries no
+    // secret — and it is the difference between "wrong password" and
+    // "wrong scope", which is worth knowing.
+    let code = 'unknown_error';
+    try {
+      const parsed = (await response.json()) as { error?: string; error_description?: string };
+      if (typeof parsed.error === 'string') code = parsed.error;
+    } catch {
+      // Non-JSON response; the status alone will have to do.
+    }
+
+    throw new UberDirectError(
+      `Courier authentication failed (HTTP ${response.status}: ${code})`,
+      response.status,
+      response.status >= 500,
+    );
   }
 
   const body = (await response.json()) as { access_token?: string; expires_in?: number };
