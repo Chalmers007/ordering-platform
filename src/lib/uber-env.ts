@@ -21,8 +21,7 @@ export const UBER_PRODUCTION_BASE = 'https://api.uber.com';
  * UBER_DIRECT_API_BASE explicitly, and the courier health check reports
  * both the resolved base and whether it was set on purpose.
  *
- * This does NOT affect OAuth: Uber issues tokens from login.uber.com for
- * both environments.
+ * This also selects the OAuth host — see uberAuthUrl().
  */
 export function uberApiBase(): string {
   const configured = process.env.UBER_DIRECT_API_BASE?.trim();
@@ -36,4 +35,29 @@ export function uberApiBaseIsExplicit(): boolean {
 
 export function uberEnvironment(): 'sandbox' | 'production' {
   return uberApiBase().includes('sandbox') ? 'sandbox' : 'production';
+}
+
+export const UBER_SANDBOX_AUTH = 'https://sandbox-login.uber.com/oauth/v2/token';
+export const UBER_PRODUCTION_AUTH = 'https://login.uber.com/oauth/v2/token';
+
+/**
+ * Where tokens come from.
+ *
+ * Uber runs a SEPARATE OAuth host per environment, and authenticating a
+ * sandbox app against the production host fails with
+ * `401 unauthorized_client` — a code that reads as a permissions or
+ * provisioning problem and sends you to the developer dashboard, or to
+ * support, for as long as it takes to read `error_description`:
+ *
+ *   "the current application environment is mismatched with the OAuth
+ *    server runtime environment"
+ *
+ * So the auth host is derived from the same setting that picks the API
+ * base. The two cannot drift apart, because a sandbox app pointed at the
+ * production login is not a configuration anyone wants.
+ */
+export function uberAuthUrl(): string {
+  const override = process.env.UBER_DIRECT_AUTH_URL?.trim();
+  if (override) return override;
+  return uberEnvironment() === 'sandbox' ? UBER_SANDBOX_AUTH : UBER_PRODUCTION_AUTH;
 }

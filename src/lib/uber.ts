@@ -1,5 +1,5 @@
 import 'server-only';
-import { uberApiBase } from './uber-env';
+import { uberApiBase, uberAuthUrl } from './uber-env';
 
 /**
  * Uber Direct.
@@ -15,14 +15,65 @@ import { uberApiBase } from './uber-env';
  * the normalised row in `deliveries`.
  */
 
-const AUTH_URL = 'https://login.uber.com/oauth/v2/token';
+
 export {
   uberApiBase,
+  uberAuthUrl,
   uberApiBaseIsExplicit,
   uberEnvironment,
   UBER_SANDBOX_BASE,
   UBER_PRODUCTION_BASE,
 } from './uber-env';
+
+
+/**
+ * Strip our own credentials out of anything before it is logged or
+ * returned.
+ *
+ * OAuth error bodies can echo request parameters back, so the body was
+ * previously withheld wholesale — which also withheld `error_description`,
+ * the one field that says WHY. Redacting is better than withholding: it
+ * keeps the diagnosis and loses the secret.
+ */
+export function redactUberSecrets(text: string): string {
+  const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
+  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
+  let out = text;
+  for (const [value, label] of [
+    [clientSecret, '<client_secret>'],
+    [clientId, '<client_id>'],
+  ] as const) {
+    if (!value) continue;
+    out = out.split(value).join(label);
+    out = out.split(encodeURIComponent(value)).join(label);
+  }
+  return out;
+}
+
+/** The OAuth error code and description, with our credentials redacted. */
+export async function readUberAuthError(
+  response: Response,
+): Promise<{ code: string; description: string | null }> {
+  let raw = '';
+  try {
+    raw = await response.text();
+  } catch {
+    return { code: 'unreadable_response', description: null };
+  }
+
+  const safe = redactUberSecrets(raw);
+  try {
+    const parsed = JSON.parse(safe) as { error?: string; error_description?: string };
+    return {
+      code: typeof parsed.error === 'string' ? parsed.error : 'unknown_error',
+      description:
+        typeof parsed.error_description === 'string' ? parsed.error_description : null,
+    };
+  } catch {
+    // Non-JSON. Return a bounded slice rather than nothing.
+    return { code: 'non_json_response', description: safe.slice(0, 300) || null };
+  }
+}
 
 export class UberDirectError extends Error {
   constructor(
@@ -71,7 +122,7 @@ export function __resetUberTokenCache(): void {
 export async function probeUberScope(
   scope: string,
   auth: 'body' | 'basic' = 'body',
-): Promise<{ ok: boolean; status: number; code: string }> {
+): Promise<{ ok: boolean; status: number; code: string; description?: string | null }> {
   const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
   const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return { ok: false, status: 0, code: 'credentials_missing' };
@@ -94,7 +145,7 @@ export async function probeUberScope(
   }
 
   try {
-    const response = await fetch(AUTH_URL, {
+    const response = await fetch(uberAuthUrl(), {
       method: 'POST',
       headers,
       body: new URLSearchParams(params),
@@ -103,14 +154,8 @@ export async function probeUberScope(
 
     if (response.ok) return { ok: true, status: response.status, code: 'granted' };
 
-    let code = 'unknown_error';
-    try {
-      const parsed = (await response.json()) as { error?: string };
-      if (typeof parsed.error === 'string') code = parsed.error;
-    } catch {
-      // Non-JSON; the status carries the signal.
-    }
-    return { ok: false, status: response.status, code };
+    const { code, description } = await readUberAuthError(response);
+    return { ok: false, status: response.status, code, description };
   } catch (error) {
     return { ok: false, status: 0, code: error instanceof Error ? error.message : 'request_failed' };
   }
@@ -130,7 +175,7 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
     );
   }
 
-  const response = await fetch(AUTH_URL, {
+  const response = await fetch(uberAuthUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -153,16 +198,19 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
     // (invalid_client, invalid_scope, unauthorized_client) and carries no
     // secret — and it is the difference between "wrong password" and
     // "wrong scope", which is worth knowing.
-    let code = 'unknown_error';
-    try {
-      const parsed = (await response.json()) as { error?: string; error_description?: string };
-      if (typeof parsed.error === 'string') code = parsed.error;
-    } catch {
-      // Non-JSON response; the status alone will have to do.
-    }
+    const { code, description } = await readUberAuthError(response);
+
+    // Logged as well as thrown: the thrown message reaches a caller, but
+    // this is what someone reads at 7pm when dispatch has stopped.
+    console.error('[uber] token exchange failed', {
+      status: response.status,
+      code,
+      description,
+      scope: process.env.UBER_DIRECT_SCOPE?.trim() || 'direct.organizations',
+    });
 
     throw new UberDirectError(
-      `Courier authentication failed (HTTP ${response.status}: ${code})`,
+      `Courier authentication failed (HTTP ${response.status}: ${code}${description ? ` — ${description}` : ''})`,
       response.status,
       response.status >= 500,
     );
@@ -348,7 +396,7 @@ export function uberTokenRequestPreview(): Record<string, string> {
   }).toString();
 
   return {
-    url: AUTH_URL,
+    url: uberAuthUrl(),
     method: 'POST',
     contentType: 'application/x-www-form-urlencoded',
     body: body

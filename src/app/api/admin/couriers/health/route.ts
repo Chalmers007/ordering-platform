@@ -71,14 +71,33 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // On failure, establish WHICH scope the app is granted rather than
     // leaving someone to guess one deploy at a time.
-    const candidates = ['direct.organizations', 'eats.deliveries', ''];
+    // Uber's scope names are not discoverable from the API, and the
+    // server rejects an unknown one without saying what it wanted. So
+    // enumerate the documented candidates once rather than redeploying
+    // per guess. `?scopes=a,b` overrides the list.
+    const override = request.nextUrl.searchParams.get('scopes');
+    const candidates = override
+      ? override.split(',').map((entry) => entry.trim())
+      : [
+          'eats.deliveries',
+          'direct.organizations',
+          'direct.deliveries',
+          'delivery',
+          'deliveries',
+          'eats.store',
+          'eats.order',
+          'direct',
+          '',
+        ];
     const probes: Record<string, string> = {};
 
-    for (const auth of ['body', 'basic'] as const) {
+    for (const auth of ['body'] as const) {
       for (const scope of candidates) {
         const probe = await probeUberScope(scope, auth);
-        const label = `${auth}/${scope || '(none)'}`;
-        probes[label] = probe.ok ? 'GRANTED' : `${probe.status} ${probe.code}`;
+        const label = scope || '(none)';
+        probes[label] = probe.ok
+          ? 'GRANTED'
+          : `${probe.status} ${probe.code}${probe.description ? ` — ${probe.description}` : ''}`;
       }
     }
 
