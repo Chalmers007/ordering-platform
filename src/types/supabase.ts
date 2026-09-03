@@ -1175,6 +1175,82 @@ export type Database = {
           },
         ]
       }
+      preview_session_assets: {
+        Row: {
+          bytes: number
+          created_at: string
+          id: string
+          kind: string
+          mime_type: string
+          session_id: string
+          storage_path: string
+        }
+        Insert: {
+          bytes: number
+          created_at?: string
+          id?: string
+          kind: string
+          mime_type: string
+          session_id: string
+          storage_path: string
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          mime_type?: string
+          session_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_session_assets_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "preview_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          tenant_id: string
+          token_hash: string
+          transferred_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          tenant_id: string
+          token_hash: string
+          transferred_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          tenant_id?: string
+          token_hash?: string
+          transferred_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reserved_subdomains: {
         Row: {
           reason: string
@@ -1942,6 +2018,13 @@ export type Database = {
         Returns: string
       }
       end_impersonation: { Args: never; Returns: number }
+      expired_preview_sessions: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+          storage_paths: string[]
+        }[]
+      }
       get_delivery_tracking: {
         Args: { p_order_id?: string; p_token?: string }
         Returns: {

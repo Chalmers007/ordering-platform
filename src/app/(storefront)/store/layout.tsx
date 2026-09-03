@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Toaster } from 'sonner';
 import { getTenantContext } from '@/lib/tenancy/context';
 import { isPreviewRequest } from '@/lib/storefront/preview';
+import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
 import { loadStorefront } from '@/lib/storefront/data';
 import { brandStyleSheet } from '@/lib/storefront/brand';
 import { CartProvider } from '@/lib/cart/cart-context';
@@ -30,6 +31,14 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
   if (!storefront) notFound();
 
   const { settings } = storefront;
+
+  // A visitor's own uploads override the staged artwork, for them only. These
+  // are session files served behind the session cookie — nothing here has
+  // touched tenant_settings, and another visitor sees the storefront as staged.
+  const session = preview ? await currentPreviewSession(tenant.tenantId) : null;
+  const uploads = session ? await sessionAssets(session.id) : [];
+  const uploadedLogo = uploads.find((a) => a.kind === 'logo');
+  const uploadedBanner = uploads.find((a) => a.kind === 'banner');
 
   return (
     <div
@@ -62,8 +71,8 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
       >
         <StorefrontHeader
           tenantName={storefront.tenant.name}
-          logoUrl={settings.logo_url}
-          coverImageUrl={settings.cover_image_url}
+          logoUrl={uploadedLogo ? `/preview-asset/${uploadedLogo.id}` : settings.logo_url}
+          coverImageUrl={uploadedBanner ? `/preview-asset/${uploadedBanner.id}` : settings.cover_image_url}
           tagline={settings.tagline}
           currency={storefront.tenant.currency}
         />

@@ -84,7 +84,11 @@ describe('bridge auth', () => {
 
 describe('dry run', () => {
   it('parses and reports without creating anything', async () => {
-    const before = await db().from('tenants').select('id', { count: 'exact', head: true });
+    // Scoped to this restaurant's own slug. Counting every tenant made the
+    // assertion fail whenever another suite created one in parallel — a flaw
+    // in the test, not in the dry run.
+    const slug = 'copper-pot-route-test';
+    const before = await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug);
     const res = await post({ content: page, sourceUrl: 'https://copperpot.example/menu' }, { dryRun: true });
     const body = await res.json();
 
@@ -105,7 +109,7 @@ describe('dry run', () => {
     // A dry run hands back no ownership credential, and writes no tenant.
     expect(body.claimUrl).toBeUndefined();
     expect(body.tenantId).toBeUndefined();
-    const after = await db().from('tenants').select('id', { count: 'exact', head: true });
+    const after = await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug);
     expect(after.count).toBe(before.count);
   });
 

@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
+import { PREVIEW_COOKIE } from '@/lib/preview-personalisation/session';
+import { transferPreviewSession } from '@/lib/preview-personalisation/transfer';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getTenantContext } from '@/lib/tenancy/context';
@@ -125,6 +128,28 @@ export async function POST(request: NextRequest) {
       { error: claimError?.message ?? 'That link could not be redeemed' },
       { status: claimError?.code === '02000' ? 410 : 500 },
     );
+  }
+
+  // ---- carry over anything they personalised --------------------------
+  // Strictly after the claim succeeded. A failed or abandoned claim returns
+  // above and never reaches here, so those files are never written onto a
+  // tenant. A failure to transfer must not fail the claim — the restaurant
+  // owns its storefront either way, and the worst case is re-uploading a logo.
+  const claimedTenant = (Array.isArray(claimed) ? claimed[0] : claimed) as { id?: string } | null;
+  const previewCookie = request.cookies.get(PREVIEW_COOKIE)?.value;
+  if (claimedTenant?.id && previewCookie) {
+    try {
+      const { data: session } = await service
+        .from('preview_sessions')
+        .select('id')
+        .eq('token_hash', createHash('sha256').update(previewCookie, 'utf8').digest('hex'))
+        .eq('tenant_id', claimedTenant.id)
+        .maybeSingle();
+      if (session?.id) await transferPreviewSession(claimedTenant.id, session.id as string);
+    } catch {
+      // Logged by nothing on purpose: there is no useful action for the
+      // person claiming, and the claim itself has already succeeded.
+    }
   }
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';

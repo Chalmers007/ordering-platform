@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PersonalisePanel } from './personalise-panel';
 
 /**
  * The banner on a storefront that has been built but not yet claimed.
@@ -19,7 +20,16 @@ import Link from 'next/link';
  * and rendered amber-on-amber: the most important sentence on the page was
  * the one nobody could read.
  */
-export function PreviewBanner({ ctaHref, walkthroughHref }: { ctaHref: string; walkthroughHref: string }) {
+export function PreviewBanner({
+  ctaHref,
+  walkthroughHref,
+  personalise,
+}: {
+  ctaHref: string;
+  walkthroughHref: string;
+  /** Absent when the visitor has uploaded nothing yet. */
+  personalise: { hasLogo: boolean; hasBanner: boolean; logoAssetId: string | null; bannerAssetId: string | null };
+}) {
   return (
     <div className="border-b border-amber-300 bg-amber-50">
       <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -48,6 +58,9 @@ export function PreviewBanner({ ctaHref, walkthroughHref }: { ctaHref: string; w
             Book a Walkthrough
           </Link>
         </div>
+      </div>
+      <div className="mx-auto max-w-5xl px-4 pb-4">
+        <PersonalisePanel {...personalise} />
       </div>
     </div>
   );
