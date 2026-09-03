@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { Toaster } from 'sonner';
 import { getTenantContext } from '@/lib/tenancy/context';
+import { isPreviewRequest } from '@/lib/storefront/preview';
 import { loadStorefront } from '@/lib/storefront/data';
 import { brandStyleSheet } from '@/lib/storefront/brand';
 import { CartProvider } from '@/lib/cart/cart-context';
@@ -20,7 +21,12 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
   const tenant = await getTenantContext();
   if (!tenant) notFound();
 
-  const storefront = await loadStorefront(tenant.tenantId);
+  // The layout loads the storefront too, and must respect the preview flag for
+  // the same reason the page does — otherwise RLS hides an unclaimed tenant
+  // here, this notFound() wins over the page's content, and the visitor gets
+  // "Page not found" while the preview sits fully rendered in the payload.
+  const preview = await isPreviewRequest();
+  const storefront = await loadStorefront(tenant.tenantId, { preview });
   if (!storefront) notFound();
 
   const { settings } = storefront;

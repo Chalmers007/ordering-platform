@@ -11,7 +11,8 @@ export default async function StorefrontPage() {
   const tenant = await getTenantContext();
   if (!tenant) notFound();
 
-  const storefront = await loadStorefront(tenant.tenantId);
+  const preview = await isPreviewRequest();
+  const storefront = await loadStorefront(tenant.tenantId, { preview });
   if (!storefront) notFound();
 
   const { canOrder } = orderingAvailability(storefront.settings);
@@ -20,8 +21,6 @@ export default async function StorefrontPage() {
   // — price_cart() rejects a non-active tenant AND every scraped item is
   // unavailable until the owner confirms the menu. Three refusals, none of them
   // relying on the others.
-  const preview = await isPreviewRequest();
-
   return (
     <>
       {preview && <PreviewBanner ctaHref={claimCtaHref()} />}

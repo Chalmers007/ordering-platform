@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createClientForRequest } from '@/lib/supabase/server';
+import { createClientForRequest, createServiceClient } from '@/lib/supabase/server';
 export { menuImageUrl } from './menu-image';
 export { orderingAvailability } from './availability';
 
@@ -21,8 +21,27 @@ import type {
  * sold out rather than dropping them, so a regular's favourite does not
  * silently vanish from the menu.
  */
-export async function loadStorefront(tenantId: string): Promise<Storefront | null> {
-  const supabase = await createClientForRequest();
+export async function loadStorefront(
+  tenantId: string,
+  options: { preview?: boolean } = {},
+): Promise<Storefront | null> {
+  // ── Why a preview needs a different client ────────────────────────────────
+  // RLS makes a storefront readable to the public only when the tenant is
+  // 'active' (tenants_select: `status = 'active' or has_tenant_access(id)`).
+  // An unclaimed tenant is therefore invisible to the anon role, and the page
+  // rendered blank — routing resolved it, because middleware asks a SECURITY
+  // DEFINER function, but the data load did not.
+  //
+  // The obvious fix — letting anon read 'pending_claim' rows — would be a bad
+  // one. `tenants` carries a table-wide SELECT grant, and by construction a
+  // pending_claim row is exactly the one holding a live `claim_token`. Opening
+  // that status to anon would publish every unredeemed ownership token in the
+  // platform.
+  //
+  // So a preview reads through the service role, server-side only, selecting
+  // the same narrow column list as always — no claim_token, no secrets, and
+  // tenant credentials live in other tables entirely.
+  const supabase = options.preview ? createServiceClient() : await createClientForRequest();
 
   const [tenantResult, settingsResult, menuResult] = await Promise.all([
     supabase
