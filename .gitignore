@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Local-only production credentials, never committed
 .supabase-prod-credentials.local
+
+# Intermediate from the atomic `npm run db:types`
+src/types/supabase.ts.tmp
