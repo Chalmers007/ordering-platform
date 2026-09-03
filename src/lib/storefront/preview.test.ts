@@ -100,3 +100,23 @@ describe('admin surfaces stay locked', () => {
     expect(appBranch).toMatch(/if \(!user && !pathname\.startsWith\('\/login'\)\)/);
   });
 });
+
+describe('a signed-in visitor without access', () => {
+  it('is told what is wrong, not that the page does not exist', () => {
+    // The first real claim ended here: the browser still held a super_admin
+    // session, resolveStaffTenantId() returns null for a super admin outside
+    // impersonation, and the new owner was shown "Page not found".
+    const layout = readFileSync('src/app/(kds)/app/(dashboard)/layout.tsx', 'utf8');
+    expect(layout).toMatch(/return <WrongAccountNotice \/>;/);
+    expect(layout).not.toMatch(/if \(!staff\) notFound\(\);/);
+
+    const notice = readFileSync('src/components/dashboard/wrong-account-notice.tsx', 'utf8');
+    expect(notice).toMatch(/not with an account that has access here/i);
+    expect(notice).toMatch(/admin console/i);
+    // It renders for a visitor with no claim to this tenant, so it must not
+    // confirm which restaurant lives at this address.
+    for (const leak of [/tenantId/, /tenant\.name/, /claim_token/, /slug/]) {
+      expect(notice).not.toMatch(leak);
+    }
+  });
+});

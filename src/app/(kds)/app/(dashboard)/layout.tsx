@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { notFound } from 'next/navigation';
+import { WrongAccountNotice } from '@/components/dashboard/wrong-account-notice';
 import { Toaster } from 'sonner';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { createClientForRequest } from '@/lib/supabase/server';
@@ -17,7 +17,15 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const staff = await resolveStaffTenantId();
-  if (!staff) notFound();
+  if (!staff) {
+    // A 404 here is a lie: the page exists, the visitor is signed in, and the
+    // only problem is WHICH account they are signed in as. That is exactly
+    // what happened after the first real claim — the browser still held a
+    // super_admin session, resolveStaffTenantId() returns null for a super
+    // admin outside impersonation, and the owner was told the page did not
+    // exist. Say what is actually wrong instead.
+    return <WrongAccountNotice />;
+  }
 
   const supabase = await createClientForRequest();
   const { data: tenant } = await supabase
