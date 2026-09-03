@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
           tech_fee_enabled: false,
           estimated_prep_time_mins: 20,
           accepts_delivery: false,
-          accepts_pickup: false,
+          accepts_pickup: true,
         })
         .eq('tenant_id', tenantId);
 
