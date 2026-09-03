@@ -232,7 +232,7 @@ export function ModifierModal({
               onOpenChange(false);
             }}
           >
-            Add · {formatCents(lineTotal, currency)}
+            Add to Order — {formatCents(lineTotal, currency)}
           </Button>
         </div>
 
