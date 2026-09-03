@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { OrderProgress } from './order-progress';
+import { LiveStatus } from './live-status';
 import { DriverMap } from './driver-map';
 import { formatCents } from '@/lib/money';
 import type { FulfillmentType, OrderStatus } from '@/types/database';
@@ -23,6 +24,16 @@ import type { TrackingResponse } from '@/app/api/dispatch/track/route';
  *    tracking link on a device where they are not signed in.
  */
 const POLL_MS = 15_000;
+
+/**
+ * While a driver is actually moving, the poll is the ONLY thing that moves
+ * the pin: `deliveries` carries column-level grants (so a customer cannot
+ * read the provider or the courier's job id), and Realtime gates on the
+ * table-level privilege those cannot add up to. Status transitions still
+ * arrive instantly over the `orders` channel; only the coordinates are on
+ * this timer, so it runs faster for the minutes it matters.
+ */
+const MOVING_POLL_MS = 6_000;
 
 export function TrackingView({
   orderId,
@@ -86,9 +97,12 @@ export function TrackingView({
   const settled = ['completed', 'cancelled', 'refunded'].includes(tracking.order.status);
   useEffect(() => {
     if (settled) return;
-    const id = window.setInterval(() => void refresh(), POLL_MS);
+    const id = window.setInterval(
+      () => void refresh(),
+      tracking.order.status === 'out_for_delivery' ? MOVING_POLL_MS : POLL_MS,
+    );
     return () => window.clearInterval(id);
-  }, [settled, refresh]);
+  }, [settled, refresh, tracking.order.status]);
 
   const showMap =
     tracking.order.status === 'out_for_delivery' && tracking.location !== null;
@@ -98,7 +112,13 @@ export function TrackingView({
   return (
     <div className="space-y-5 py-4">
       <div>
-        <p className="text-sm text-neutral-500">Order {tracking.order.number}</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="text-sm text-neutral-500">Order {tracking.order.number}</p>
+          <LiveStatus
+            status={tracking.order.status as OrderStatus}
+            fulfillmentType={tracking.order.fulfillment_type as FulfillmentType}
+          />
+        </div>
         {eta && !settled ? (
           <p suppressHydrationWarning className="mt-0.5 text-lg font-semibold">
             {tracking.order.fulfillment_type === 'delivery' ? 'Arriving' : 'Ready'} around{' '}
