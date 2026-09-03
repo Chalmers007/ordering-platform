@@ -166,3 +166,22 @@ describe('staging a real storefront', () => {
     expect(body.claimUrl).toBeTruthy();
   });
 });
+
+describe('a name that is already taken', () => {
+  it('is a 409, not a 500 — the menu was fine and the name is the problem', async () => {
+    // provision_tenant refuses rather than overwriting, which is what stops a
+    // second run clobbering a storefront somebody may already hold a claim
+    // link for. Reporting that as a server fault sends an operator hunting an
+    // outage instead of looking up the existing storefront.
+    const first = await post({ content: page.replace(/Copper Pot Route Test/g, 'Collision Test Cafe'), sourceUrl: 'https://collide.example/menu' });
+    const firstBody = await first.json();
+    expect(first.status).toBe(201);
+    created.push(firstBody.tenantId);
+
+    const second = await post({ content: page.replace(/Copper Pot Route Test/g, 'Collision Test Cafe'), sourceUrl: 'https://collide.example/menu' });
+    const body = await second.json();
+    expect(second.status).toBe(409);
+    expect(body.reason).toBe('conflict');
+    expect(body.error).toMatch(/already exists/i);
+  });
+});

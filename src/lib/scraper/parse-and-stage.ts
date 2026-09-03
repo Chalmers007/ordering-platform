@@ -47,7 +47,7 @@ export interface StageResult {
   skipped: string[];
 }
 
-export type StagingFailure = 'unparseable' | 'no_menu' | 'invalid' | 'db';
+export type StagingFailure = 'unparseable' | 'no_menu' | 'invalid' | 'db' | 'conflict';
 
 export class StagingError extends Error {
   // A plain field, not a parameter property: this repo runs scripts with bare
@@ -119,7 +119,18 @@ export async function parseAndStage(input: StageInput): Promise<StageResult> {
     p_slug: slugify(parsed.name),
   });
   if (provisionError || !tenant) {
-    throw new StagingError(`could not provision a tenant: ${provisionError?.message ?? 'no row returned'}`, 'db');
+    const message = provisionError?.message ?? 'no row returned';
+    // A taken subdomain is an expected outcome, not a fault: this restaurant
+    // has already been staged, or shares a name with one that has. Reporting
+    // it as a 500 sends an operator to look for an outage, and the honest
+    // answer — "a storefront for that name already exists" — is one they can
+    // act on. provision_tenant refuses rather than overwriting, which is what
+    // stops a second run clobbering a storefront somebody may already hold a
+    // claim link for.
+    if (/already taken|unique/i.test(message)) {
+      throw new StagingError(`a storefront already exists for that name — ${message}`, 'conflict');
+    }
+    throw new StagingError(`could not provision a tenant: ${message}`, 'db');
   }
   const row = (Array.isArray(tenant) ? tenant[0] : tenant) as { id: string; slug: string; name: string };
 

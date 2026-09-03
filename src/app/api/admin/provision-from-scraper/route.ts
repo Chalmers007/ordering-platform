@@ -57,6 +57,9 @@ function statusForStagingError(reason: StagingError['reason']): number {
     case 'unparseable':
     case 'invalid':
       return 422;
+    // The request was well-formed and the menu was fine; the name is taken.
+    case 'conflict':
+      return 409;
     case 'db':
       return 500;
   }
