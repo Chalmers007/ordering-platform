@@ -44,19 +44,27 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_order_id   uuid;
-  v_tracking   uuid;
-  v_cart       jsonb;
-  v_line       jsonb;
-  v_mod        jsonb;
-  v_item_id    uuid;
-  v_first_time boolean;
-  v_sort       integer := 0;
-  v_tenant     public.tenants%rowtype;
+  v_order_id              uuid;
+  v_tracking              uuid;
+  v_cart                  jsonb;
+  v_line                  jsonb;
+  v_mod                   jsonb;
+  v_item_id               uuid;
+  v_first_time            boolean;
+  v_sort                  integer := 0;
+  v_tenant                public.tenants%rowtype;
+  v_settings              public.tenant_settings%rowtype;
+  v_prep_time             integer;
+  v_new_tracking_token    uuid;
 begin
   select * into v_tenant from public.tenants where id = p_tenant_id for update;
   if not found or v_tenant.status <> 'active' then
     raise exception 'This restaurant is not accepting orders' using errcode = 'check_violation';
+  end if;
+
+  select * into v_settings from public.tenant_settings where tenant_id = p_tenant_id;
+  if not found then
+    raise exception 'Restaurant is not configured' using errcode = 'check_violation';
   end if;
 
   if jsonb_typeof(p_priced_cart) <> 'object' then
@@ -80,6 +88,9 @@ begin
       and o.status <> 'draft'
   ) into v_first_time;
 
+  v_new_tracking_token := gen_random_uuid();
+  v_prep_time := v_settings.estimated_prep_time_mins;
+
   insert into public.orders (
     tenant_id, status, payment_status, fulfillment_type,
     customer_name, customer_phone, customer_email,
@@ -91,11 +102,11 @@ begin
     delivery_fee_cents, service_fee_cents, tech_fee_cents, total_cents,
     currency, prep_time_mins, promised_at
   )
-  select
+  values (
     p_tenant_id, 'paid', 'paid', p_fulfillment_type,
     btrim(p_customer_name), btrim(p_customer_phone),
     nullif(btrim(coalesce(p_customer_email, '')), ''),
-    v_first_time, gen_random_uuid(),
+    v_first_time, v_new_tracking_token,
     p_delivery_address_line1, p_delivery_address_line2, p_delivery_city,
     p_delivery_region, p_delivery_postal_code, p_delivery_country,
     p_delivery_latitude, p_delivery_longitude, p_delivery_instructions,
@@ -103,11 +114,12 @@ begin
     (v_cart ->> 'taxCents')::integer, (v_cart ->> 'tipCents')::integer,
     (v_cart ->> 'deliveryFeeCents')::integer, (v_cart ->> 'serviceFeeCents')::integer,
     (v_cart ->> 'techFeeCents')::integer, (v_cart ->> 'totalCents')::integer,
-    (v_cart ->> 'currency')::char(3), ts.estimated_prep_time_mins,
-    now() + make_interval(mins => ts.estimated_prep_time_mins)
-  from public.tenant_settings ts
-  where ts.tenant_id = p_tenant_id
-  returning id, tracking_token into v_order_id, v_tracking;
+    (v_cart ->> 'currency')::char(3), v_prep_time,
+    now() + make_interval(mins => v_prep_time)
+  )
+  returning id into v_order_id;
+
+  v_tracking := v_new_tracking_token;
 
   if v_order_id is null then
     raise exception 'Failed to create order' using errcode = 'internal_error';
