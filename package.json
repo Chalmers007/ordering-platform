@@ -9,7 +9,7 @@
     "lint": "eslint",
     "db:start": "env -u SUPABASE_ACCESS_TOKEN supabase start --ignore-health-check",
     "db:stop": "env -u SUPABASE_ACCESS_TOKEN supabase stop",
-    "db:reset": "env -u SUPABASE_ACCESS_TOKEN supabase db reset",
+    "db:reset": "./scripts/db-reset.sh",
     "db:types": "env -u SUPABASE_ACCESS_TOKEN supabase gen types typescript --local --schema public > src/types/supabase.ts.tmp && mv src/types/supabase.ts.tmp src/types/supabase.ts",
     "test:sql": "./scripts/run-sql-tests.sh",
     "typecheck": "tsc --noEmit",
