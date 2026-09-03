@@ -333,3 +333,21 @@ select set_config('request.jwt.claims', null, false);
 
 \echo ''
 \echo '=== SLICE 1 SUITE COMPLETED ==='
+
+\echo '=== T37 the courier is never named to a client role'
+-- The customer may read their own delivery ROW (the tracking page reacts
+-- to it over Realtime), so row-level access is not the control here.
+-- These columns must be unreadable by column grant.
+select 'T37' as test, bool_and(not has_column_privilege('authenticated', 'public.deliveries', col, 'select')) as passed
+from unnest(array[
+  'provider', 'external_ref', 'tracking_url', 'cost_cents', 'failure_reason',
+  'courier_name', 'courier_phone', 'courier_photo_url',
+  'courier_latitude', 'courier_longitude', 'courier_heading'
+]) as col;
+
+\echo '=== T38 anon reads nothing from deliveries at all'
+select 'T38' as test, not has_table_privilege('anon', 'public.deliveries', 'select') as passed;
+
+\echo '=== T39 change-detection columns stay readable, or the tracking page goes deaf'
+select 'T39' as test, bool_and(has_column_privilege('authenticated', 'public.deliveries', col, 'select')) as passed
+from unnest(array['id', 'order_id', 'tenant_id', 'status', 'updated_at']) as col;
