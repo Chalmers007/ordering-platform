@@ -73,11 +73,12 @@ export async function POST(request: NextRequest) {
     const candidates = ['direct.organizations', 'eats.deliveries', ''];
     const probes: Record<string, string> = {};
 
-    for (const scope of candidates) {
-      const probe = await probeUberScope(scope);
-      probes[scope || '(no scope requested)'] = probe.ok
-        ? 'GRANTED'
-        : `${probe.status} ${probe.code}`;
+    for (const auth of ['body', 'basic'] as const) {
+      for (const scope of candidates) {
+        const probe = await probeUberScope(scope, auth);
+        const label = `${auth}/${scope || '(none)'}`;
+        probes[label] = probe.ok ? 'GRANTED' : `${probe.status} ${probe.code}`;
+      }
     }
 
     result.oauth = {

@@ -54,33 +54,49 @@ export function __resetUberTokenCache(): void {
  * dispatch into a 401 and an order nobody is delivering.
  */
 /**
- * One token request for a specific scope, uncached.
+ * One uncached token request, for diagnosis only.
  *
- * Exists so the courier health check can establish WHICH scope an Uber app
- * is actually granted — `invalid_scope` with valid credentials is an app
- * configuration problem, and guessing between the two candidates one
- * deploy at a time is not a diagnosis.
+ * `unauthorized_client` means the server recognises the client but will
+ * not issue it this grant. Two causes are indistinguishable from outside:
+ * the app is genuinely not provisioned for client_credentials, or it
+ * expects its credentials presented the other way.
+ *
+ * OAuth 2.0 defines two client authentication methods. `client_secret_post`
+ * puts the id and secret in the form body; `client_secret_basic` puts them
+ * in an HTTP Basic header. A server configured for one rejects the other,
+ * and the rejection looks identical to a permissions problem. We only ever
+ * tried the first, so this probes both before anyone goes to Uber support
+ * with a question we could have answered ourselves.
  */
 export async function probeUberScope(
   scope: string,
+  auth: 'body' | 'basic' = 'body',
 ): Promise<{ ok: boolean; status: number; code: string }> {
   const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
   const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return { ok: false, status: 0, code: 'credentials_missing' };
 
-  const params: Record<string, string> = {
-    client_id: clientId,
-    client_secret: clientSecret,
-    grant_type: 'client_credentials',
-  };
+  const params: Record<string, string> = { grant_type: 'client_credentials' };
   // An empty scope is a legitimate probe: it asks the server for whatever
   // the app is granted by default.
   if (scope) params.scope = scope;
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    Accept: 'application/json',
+  };
+
+  if (auth === 'basic') {
+    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+  } else {
+    params.client_id = clientId;
+    params.client_secret = clientSecret;
+  }
+
   try {
     const response = await fetch(AUTH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers,
       body: new URLSearchParams(params),
       signal: AbortSignal.timeout(10_000),
     });
@@ -103,8 +119,8 @@ export async function probeUberScope(
 export async function getUberAccessToken(now: number = Date.now()): Promise<string> {
   if (cached && cached.expiresAt > now) return cached.token;
 
-  const clientId = process.env.UBER_DIRECT_CLIENT_ID;
-  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET;
+  const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
+  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
 
   if (!clientId || !clientSecret) {
     throw new UberDirectError(
@@ -126,7 +142,7 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
       // Eats marketplace integrations. Getting it wrong returns
       // invalid_scope with otherwise-valid credentials, which reads like a
       // credential problem and is not one.
-      scope: process.env.UBER_DIRECT_SCOPE?.trim() ?? 'direct.organizations',
+      scope: process.env.UBER_DIRECT_SCOPE?.trim() || 'direct.organizations',
     }),
     signal: AbortSignal.timeout(10_000),
   });
