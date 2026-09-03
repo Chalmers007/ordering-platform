@@ -2006,6 +2006,7 @@ export type Database = {
         }[]
       }
       has_tenant_access: { Args: { p_tenant_id: string }; Returns: boolean }
+      is_platform_operator: { Args: never; Returns: boolean }
       is_storefront_public: { Args: { p_tenant_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_member: { Args: { p_tenant_id: string }; Returns: boolean }

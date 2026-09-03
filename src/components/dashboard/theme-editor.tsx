@@ -2,6 +2,7 @@
 
 import { BRAND_DEFAULTS, safeFontFamily, safeHexColor } from '@/lib/storefront/brand';
 import { Input } from '@/components/ui/input';
+import { ImageUploadButton } from './image-upload-button';
 
 const FONTS = ['Inter', 'Georgia', 'Helvetica', 'Verdana', 'Courier New', 'Trebuchet MS'];
 
@@ -101,27 +102,49 @@ export function ThemeEditor({
           </select>
         </label>
 
-        <label className="block">
-          <span className="mb-1 block text-sm text-neutral-300">Logo URL</span>
-          <Input
-            className="border-neutral-700 bg-neutral-950 text-neutral-100"
-            value={theme.logoUrl}
-            disabled={disabled}
-            placeholder="https://…"
-            onChange={(event) => set({ logoUrl: event.target.value })}
-          />
-        </label>
+        <div className="space-y-2">
+          <label className="block">
+            <span className="mb-2 block text-sm text-neutral-300">Restaurant logo</span>
+            <ImageUploadButton
+              type="logo"
+              currentUrl={theme.logoUrl}
+              onUrlChange={(url) => set({ logoUrl: url })}
+              disabled={disabled}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-neutral-500">Or paste a URL</span>
+            <Input
+              className="border-neutral-700 bg-neutral-950 text-neutral-100"
+              value={theme.logoUrl}
+              disabled={disabled}
+              placeholder="https://…"
+              onChange={(event) => set({ logoUrl: event.target.value })}
+            />
+          </label>
+        </div>
 
-        <label className="block">
-          <span className="mb-1 block text-sm text-neutral-300">Hero banner URL</span>
-          <Input
-            className="border-neutral-700 bg-neutral-950 text-neutral-100"
-            value={theme.bannerUrl}
-            disabled={disabled}
-            placeholder="https://…"
-            onChange={(event) => set({ bannerUrl: event.target.value })}
-          />
-        </label>
+        <div className="space-y-2">
+          <label className="block">
+            <span className="mb-2 block text-sm text-neutral-300">Hero banner image</span>
+            <ImageUploadButton
+              type="banner"
+              currentUrl={theme.bannerUrl}
+              onUrlChange={(url) => set({ bannerUrl: url })}
+              disabled={disabled}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-neutral-500">Or paste a URL</span>
+            <Input
+              className="border-neutral-700 bg-neutral-950 text-neutral-100"
+              value={theme.bannerUrl}
+              disabled={disabled}
+              placeholder="https://…"
+              onChange={(event) => set({ bannerUrl: event.target.value })}
+            />
+          </label>
+        </div>
 
         <p className="text-xs text-neutral-500">
           Colours must be hex. The database rejects anything else, because these values are

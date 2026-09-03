@@ -36,10 +36,12 @@ export function CheckoutReturn({ sessionId }: { sessionId: string }) {
       const row = data?.[0];
       if (cancelled) return;
 
-      if (row?.order_id) {
+      if (row?.order_id && row?.tracking_token) {
         // The cart is only cleared once the order provably exists.
         clear();
-        router.replace(`/orders/${row.order_id}?status=success`);
+        // Use the opaque tracking token, not the order id, so the link works
+        // for guests who may not be signed in.
+        router.replace(`/orders/${row.tracking_token}?status=success`);
         return;
       }
 
