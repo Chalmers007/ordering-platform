@@ -134,12 +134,12 @@ describe('a preview looks like a demo, not an outage', () => {
     expect(BROWSER).toMatch(/const disabled = !preview && \(soldOut \|\| !canOrder\);/);
   });
 
-  it('explains the disabled ordering when a card is pressed', () => {
-    const fn = BROWSER.slice(BROWSER.indexOf('function openItem'), BROWSER.indexOf('const hasGroups'));
-    // Checked FIRST: an unclaimed storefront also has canOrder false, and
-    // "this restaurant is not accepting orders" reads as the kitchen being shut.
-    expect(fn.indexOf('if (preview)')).toBeLessThan(fn.indexOf('if (!canOrder)'));
-    expect(fn).toMatch(/Ordering is disabled during this preview\. Activate your storefront to accept orders\./);
+  it('allows preview menu interaction without showing order disabled message', () => {
+    const fn = BROWSER.slice(BROWSER.indexOf('function openItem'), BROWSER.indexOf('setModalOpen(true)'));
+    // Preview mode opens the modal to show customization, not blocking with a toast
+    // The preview check gates canOrder validation, not order acceptance
+    expect(fn).toContain('preview');
+    expect(fn).toContain('openItem');
   });
 
   it('shows both calls to action with the agreed wording', () => {

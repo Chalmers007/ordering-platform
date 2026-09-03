@@ -68,27 +68,21 @@ export function MenuBrowser({
   }, [categories, query, activeCategory]);
 
   function openItem(item: MenuItemWithModifiers) {
-    // Checked FIRST. An unclaimed storefront also has canOrder false, and
-    // "this restaurant is not accepting orders" is the wrong thing to tell a
-    // prospect looking at a demo of their own business — it reads as their
-    // kitchen being shut.
-    if (preview) {
-      toast('Ordering is disabled during this preview. Activate your storefront to accept orders.');
-      return;
-    }
-    if (!canOrder) {
+    // In preview mode, open the modal to show customization, but the Add button
+    // will show a demo message instead of actually adding to cart.
+    if (!preview && !canOrder) {
       toast.error('This restaurant is not accepting orders right now.');
       return;
     }
-    if (!item.is_available) return;
+    if (!preview && !item.is_available) return;
 
-    // Nothing to choose: straight into the cart. Anything with options —
+    // Nothing to choose: straight into the cart (unless preview). Anything with options —
     // including a required size — has to go through the modal, because the
     // server will refuse to price a pizza with no size.
     const hasGroups = item.menu_item_modifier_groups.some(
       (link) => link.menu_modifier_groups.is_active,
     );
-    if (!hasGroups) {
+    if (!hasGroups && !preview) {
       addLine({ menuItemId: item.id, quantity: 1, modifiers: [] });
       toast.success(`${item.name} added`);
       return;
@@ -302,7 +296,12 @@ export function MenuBrowser({
         currency={currency}
         open={modalOpen}
         onOpenChange={setModalOpen}
+        preview={preview}
         onAdd={(input) => {
+          if (preview) {
+            toast('This is a preview. Ordering will be available after you activate your storefront.');
+            return;
+          }
           addLine(input);
           toast.success('Added to your order');
         }}

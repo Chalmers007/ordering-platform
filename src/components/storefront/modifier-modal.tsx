@@ -30,12 +30,14 @@ export function ModifierModal({
   currency,
   open,
   onOpenChange,
+  preview = false,
   onAdd,
 }: {
   item: MenuItemWithModifiers | null;
   currency: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preview?: boolean;
   onAdd: (input: {
     menuItemId: string;
     quantity: number;
@@ -217,7 +219,8 @@ export function ModifierModal({
           </div>
 
           <Button
-            className="flex-1"
+            className={`flex-1 ${preview ? 'bg-neutral-300 hover:bg-neutral-400' : ''}`}
+            disabled={preview}
             onClick={() => {
               if (violations.length > 0) {
                 setShowErrors(true);
@@ -232,7 +235,7 @@ export function ModifierModal({
               onOpenChange(false);
             }}
           >
-            Add to Order — {formatCents(lineTotal, currency)}
+            {preview ? 'Add to Preview Cart' : 'Add to Order'} — {formatCents(lineTotal, currency)}
           </Button>
         </div>
 

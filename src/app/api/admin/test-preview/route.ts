@@ -104,6 +104,141 @@ async function seedMenu(supabase: any, tenantId: string): Promise<void> {
   }
 }
 
+async function seedModifiers(supabase: any, tenantId: string): Promise<void> {
+  // Seed modifier groups for pizza sizes, toppings, etc.
+  const groups = [
+    {
+      name: 'Pizza Size',
+      slug: 'pizza-size',
+      selection_type: 'single' as const,
+      is_required: true,
+      min_selections: 1,
+      max_selections: 1,
+      sort_order: 0,
+      options: [
+        { name: '10" Personal', price_delta_cents: 0, is_default: true },
+        { name: '14" Medium', price_delta_cents: 400 },
+        { name: '18" Large', price_delta_cents: 800 },
+      ],
+    },
+    {
+      name: 'Toppings',
+      slug: 'toppings',
+      selection_type: 'multiple' as const,
+      is_required: false,
+      min_selections: 0,
+      max_selections: 4,
+      sort_order: 1,
+      options: [
+        { name: 'Extra Cheese', price_delta_cents: 150, is_default: false },
+        { name: 'Pepperoni', price_delta_cents: 200, is_default: false },
+        { name: 'Mushrooms', price_delta_cents: 100, is_default: false },
+        { name: 'Olives', price_delta_cents: 100, is_default: false },
+      ],
+    },
+  ];
+
+  for (const group of groups) {
+    const { data: found } = await supabase
+      .from('menu_modifier_groups')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('name', group.name)
+      .maybeSingle();
+
+    let groupId = found?.id;
+
+    if (!groupId) {
+      const { data, error } = await supabase
+        .from('menu_modifier_groups')
+        .insert({
+          tenant_id: tenantId,
+          name: group.name,
+          description: null,
+          selection_type: group.selection_type,
+          is_required: group.is_required,
+          min_selections: group.min_selections,
+          max_selections: group.max_selections,
+          sort_order: group.sort_order,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+      if (error || !data) throw new Error(`Group "${group.name}": ${error?.message}`);
+      groupId = data.id;
+    }
+
+    for (const [index, option] of group.options.entries()) {
+      const { data: existing } = await supabase
+        .from('menu_modifiers')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('name', option.name)
+        .maybeSingle();
+
+      if (existing) continue;
+
+      const { error } = await supabase.from('menu_modifiers').insert({
+        tenant_id: tenantId,
+        group_id: groupId,
+        name: option.name,
+        price_delta_cents: option.price_delta_cents,
+        is_default: option.is_default ?? false,
+        is_available: true,
+        sort_order: index,
+      });
+      if (error) throw new Error(`Option "${option.name}": ${error.message}`);
+    }
+  }
+}
+
+async function linkPizzaModifiers(supabase: any, tenantId: string): Promise<void> {
+  // Link Pizza Size and Toppings groups to pizza items (Margherita, Pepperoni)
+  const { data: pizzaItems } = await supabase
+    .from('menu_items')
+    .select('id, slug')
+    .eq('tenant_id', tenantId)
+    .in('slug', ['margherita', 'pepperoni']);
+
+  if (!pizzaItems?.length) return;
+
+  const { data: groups } = await supabase
+    .from('menu_modifier_groups')
+    .select('id, name')
+    .eq('tenant_id', tenantId)
+    .in('name', ['Pizza Size', 'Toppings']);
+
+  if (!groups?.length) return;
+
+  const groupMap = new Map(groups.map((g: any) => [g.name, g.id]));
+
+  for (const item of pizzaItems) {
+    for (const [groupName, sort_order] of [
+      ['Pizza Size', 0],
+      ['Toppings', 1],
+    ] as const) {
+      const groupId = groupMap.get(groupName);
+      if (!groupId) continue;
+
+      const { data: existing } = await supabase
+        .from('menu_item_modifier_groups')
+        .select('id')
+        .eq('item_id', item.id)
+        .eq('group_id', groupId)
+        .maybeSingle();
+
+      if (existing) continue;
+
+      await supabase.from('menu_item_modifier_groups').insert({
+        tenant_id: tenantId,
+        item_id: item.id,
+        group_id: groupId,
+        sort_order,
+      });
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   const guard = await requireSuperAdmin();
   if (!guard.ok) {
@@ -185,6 +320,12 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Seed menu (idempotent via upsert)
     await seedMenu(supabase, tenantId);
+
+    // Step 5: Seed modifier groups for demo (pizza sizes, toppings, etc.)
+    await seedModifiers(supabase, tenantId);
+
+    // Step 6: Link modifiers to pizza items
+    await linkPizzaModifiers(supabase, tenantId);
 
     // Step 5: Get the root domain for the preview URL
     const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
