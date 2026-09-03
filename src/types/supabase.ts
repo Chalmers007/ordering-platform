@@ -255,6 +255,7 @@ export type Database = {
           location_updated_at: string | null
           order_id: string
           picked_up_at: string | null
+          provider: string | null
           status: Database["public"]["Enums"]["delivery_status"]
           tenant_id: string
           tracking_url: string | null
@@ -280,6 +281,7 @@ export type Database = {
           location_updated_at?: string | null
           order_id: string
           picked_up_at?: string | null
+          provider?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
           tenant_id: string
           tracking_url?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           location_updated_at?: string | null
           order_id?: string
           picked_up_at?: string | null
+          provider?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
           tenant_id?: string
           tracking_url?: string | null
@@ -372,7 +375,7 @@ export type Database = {
           order_id: string | null
           payload: Json
           processed_at: string | null
-          provider: Database["public"]["Enums"]["payment_provider"]
+          provider: string
           received_at: string
           tenant_id: string | null
         }
@@ -385,7 +388,7 @@ export type Database = {
           order_id?: string | null
           payload: Json
           processed_at?: string | null
-          provider: Database["public"]["Enums"]["payment_provider"]
+          provider: string
           received_at?: string
           tenant_id?: string | null
         }
@@ -398,7 +401,7 @@ export type Database = {
           order_id?: string | null
           payload?: Json
           processed_at?: string | null
-          provider?: Database["public"]["Enums"]["payment_provider"]
+          provider?: string
           received_at?: string
           tenant_id?: string | null
         }
@@ -1672,6 +1675,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      apply_delivery_event: {
+        Args: {
+          p_courier_name?: string
+          p_courier_phone?: string
+          p_estimated_delivery_at?: string
+          p_external_ref: string
+          p_latitude?: number
+          p_longitude?: number
+          p_provider: string
+          p_status: Database["public"]["Enums"]["delivery_status"]
+          p_tracking_url?: string
+        }
+        Returns: string
+      }
       assign_tenant_owner: {
         Args: {
           p_email?: string
@@ -1932,6 +1949,20 @@ export type Database = {
               p_estimated_pickup_at?: string
               p_external_ref: string
               p_order_id: string
+              p_status?: Database["public"]["Enums"]["delivery_status"]
+              p_tracking_url?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_courier_name?: string
+              p_courier_phone?: string
+              p_estimated_delivery_at?: string
+              p_estimated_pickup_at?: string
+              p_external_ref: string
+              p_order_id: string
+              p_provider?: string
               p_status?: Database["public"]["Enums"]["delivery_status"]
               p_tracking_url?: string
             }

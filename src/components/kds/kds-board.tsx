@@ -117,8 +117,31 @@ export function KdsBoard({
       p_to_status: to as OrderStatus,
     });
 
+    if (rpcError) {
+      setBusyOrderId(null);
+      toast.error(rpcError.message);
+      return;
+    }
+
+    // Book the courier as the food starts, not when it is finished, so a
+    // driver is on the way while it cooks. Deliberately not fatal: the
+    // order has moved regardless, and a dispatch failure is recorded
+    // against the delivery row for staff to retry.
+    if (to === 'preparing' && order.fulfillment_type === 'delivery') {
+      try {
+        const response = await fetch(`/api/orders/${order.id}/dispatch`, { method: 'POST' });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          // A restaurant with no courier account is a normal state, not an
+          // error worth shouting about on every ticket.
+          if (response.status !== 409) toast.error(body?.error ?? 'Could not book a courier');
+        }
+      } catch {
+        toast.error('Could not reach the courier service');
+      }
+    }
+
     setBusyOrderId(null);
-    if (rpcError) toast.error(rpcError.message);
     // The board redraws from the Realtime UPDATE, not from this response —
     // so every station sees the same move at the same time.
   }
