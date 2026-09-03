@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createClientForRequest } from '@/lib/supabase/server';
+import { createClientForRequest, createServiceClient } from '@/lib/supabase/server';
 import { requireSuperAdmin } from '@/lib/admin/guard';
 
 /**
