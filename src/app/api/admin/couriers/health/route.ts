@@ -8,6 +8,7 @@ import {
   probeUberScope,
   uberCredentialShape,
 } from '@/lib/uber';
+import { uberApiBase, uberApiBaseIsExplicit, uberEnvironment } from '@/lib/uber-env';
 
 /**
  * Courier integration health.
@@ -45,12 +46,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tenantId is required' }, { status: 422 });
   }
 
-  const apiBase = process.env.UBER_DIRECT_API_BASE ?? 'https://api.uber.com';
-  const environment = apiBase.includes('sandbox') ? 'sandbox' : 'production';
+  const apiBase = uberApiBase();
+  const environment = uberEnvironment();
+  // An unset variable resolves to sandbox. Say so, so nobody reads
+  // "sandbox" as a deliberate choice when it was an omission.
+  const apiBaseExplicit = uberApiBaseIsExplicit();
 
   const result: Record<string, unknown> = {
     environment,
     apiBase,
+    apiBaseExplicit,
     credentialsPresent: Boolean(
       process.env.UBER_DIRECT_CLIENT_ID && process.env.UBER_DIRECT_CLIENT_SECRET,
     ),

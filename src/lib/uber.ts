@@ -1,4 +1,5 @@
 import 'server-only';
+import { uberApiBase } from './uber-env';
 
 /**
  * Uber Direct.
@@ -15,7 +16,13 @@ import 'server-only';
  */
 
 const AUTH_URL = 'https://login.uber.com/oauth/v2/token';
-const API_BASE = process.env.UBER_DIRECT_API_BASE ?? 'https://api.uber.com';
+export {
+  uberApiBase,
+  uberApiBaseIsExplicit,
+  uberEnvironment,
+  UBER_SANDBOX_BASE,
+  UBER_PRODUCTION_BASE,
+} from './uber-env';
 
 export class UberDirectError extends Error {
   constructor(
@@ -164,7 +171,7 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
 async function call<T>(path: string, body: unknown): Promise<T> {
   const token = await getUberAccessToken();
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${uberApiBase()}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,

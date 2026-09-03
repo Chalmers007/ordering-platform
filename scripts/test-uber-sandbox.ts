@@ -26,7 +26,7 @@ const TENANT_ID = process.env.TENANT_ID ?? 'ada81b55-b727-4c2c-a993-efb374dd9eef
 const DISPATCH = process.argv.includes('--dispatch');
 
 const AUTH_URL = 'https://login.uber.com/oauth/v2/token';
-const API_BASE = process.env.UBER_DIRECT_API_BASE ?? 'https://api.uber.com';
+const API_BASE = (process.env.UBER_DIRECT_API_BASE?.trim() || 'https://sandbox-api.uber.com').replace(/\/+$/, '');
 
 type Phase = { name: string; ok: boolean; detail: string };
 const phases: Phase[] = [];
