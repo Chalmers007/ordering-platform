@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClientForRequest();
+  const supabase = createServiceClient();
 
   try {
     // Step 1: Check if the test tenant already exists
