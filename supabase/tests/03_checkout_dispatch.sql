@@ -285,10 +285,10 @@ select
   not has_function_privilege('anon',
     'public.create_order_from_checkout(uuid,text,text,integer)', 'EXECUTE') as create_order_denied_anon,
   not has_function_privilege('authenticated',
-    'public.record_dispatch_reference(uuid,text,public.delivery_status,timestamptz,timestamptz)',
+    'public.record_dispatch_reference(uuid,text,public.delivery_status,timestamptz,timestamptz,text,text,text,text)',
     'EXECUTE') as dispatch_ref_denied_auth,
   not has_function_privilege('anon',
-    'public.record_dispatch_reference(uuid,text,public.delivery_status,timestamptz,timestamptz)',
+    'public.record_dispatch_reference(uuid,text,public.delivery_status,timestamptz,timestamptz,text,text,text,text)',
     'EXECUTE') as dispatch_ref_denied_anon,
   -- ...while the customer's own entry points stay reachable.
   has_function_privilege('authenticated',
