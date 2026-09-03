@@ -7,6 +7,7 @@ import {
   getUberAccessToken,
   probeUberScope,
   uberCredentialShape,
+  uberTokenRequestPreview,
 } from '@/lib/uber';
 import { uberApiBase, uberApiBaseIsExplicit, uberEnvironment } from '@/lib/uber-env';
 
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       scopeProbe: probes,
       configuredScope: process.env.UBER_DIRECT_SCOPE ?? 'direct.organizations',
       credentialShape: uberCredentialShape(),
+      requestPreview: uberTokenRequestPreview(),
     };
     return NextResponse.json(result, { status: 502 });
   }

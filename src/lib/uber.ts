@@ -326,3 +326,33 @@ export function uberCredentialShape(): Record<string, unknown> {
     clientSecretLooksQuoted: /^["']|["']$/.test(rawSecret.trim()),
   };
 }
+
+
+/**
+ * The exact serialized token-request body, with the secret redacted.
+ *
+ * Encoding questions ("are we form-encoding correctly?", "is the scope
+ * serialized right?") are answerable by looking, not by reasoning — so
+ * this shows the literal bytes rather than describing them. The secret is
+ * replaced by its length; the client id is shown as a prefix only.
+ */
+export function uberTokenRequestPreview(): Record<string, string> {
+  const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim() ?? '';
+  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim() ?? '';
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'client_credentials',
+    scope: process.env.UBER_DIRECT_SCOPE?.trim() || 'direct.organizations',
+  }).toString();
+
+  return {
+    url: AUTH_URL,
+    method: 'POST',
+    contentType: 'application/x-www-form-urlencoded',
+    body: body
+      .replace(encodeURIComponent(clientSecret), `<redacted:${clientSecret.length}>`)
+      .replace(encodeURIComponent(clientId), `${clientId.slice(0, 6)}...<${clientId.length}>`),
+  };
+}
