@@ -150,3 +150,38 @@ export function impersonationSecret(): string {
 
 export const IMPERSONATION_HEADER = 'x-impersonated-tenant';
 export const IMPERSONATION_SESSION_HEADER = 'x-impersonation-session';
+
+/**
+ * Cookie scope.
+ *
+ * Impersonation starts on `admin.<root>` but is consumed on `app.<root>`
+ * and on tenant storefronts, so a host-only cookie is useless: the browser
+ * would never send it anywhere but the console it was issued on. Setting
+ * `domain` to the root makes it readable across every surface.
+ *
+ * The port is stripped because cookie domains cannot carry one — with
+ * `NEXT_PUBLIC_ROOT_DOMAIN=localhost:3000` an unstripped value is silently
+ * rejected and impersonation appears to do nothing.
+ */
+export function impersonationCookieDomain(): string | undefined {
+  const root = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? '').trim().replace(/:\d+$/, '');
+  return root || undefined;
+}
+
+/** One definition, so DELETE clears exactly what POST set — a cookie
+ *  removed with a different domain or path is simply not removed. */
+export function impersonationCookieOptions(): {
+  httpOnly: true;
+  sameSite: 'lax';
+  secure: boolean;
+  path: string;
+  domain?: string;
+} {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    ...(impersonationCookieDomain() ? { domain: impersonationCookieDomain() } : {}),
+  };
+}

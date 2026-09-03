@@ -32,6 +32,14 @@ export function ImpersonationBanner({
       toast.error('Could not exit impersonation');
       return;
     }
+
+    // On app.<root> a refresh would re-render a staff page the administrator
+    // has no tenant for. Send them back to the console they came from.
+    const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? '';
+    if (root && window.location.hostname === `app.${root.replace(/:\d+$/, '')}`) {
+      window.location.assign(`${window.location.protocol}//admin.${root}`);
+      return;
+    }
     router.refresh();
   }
 

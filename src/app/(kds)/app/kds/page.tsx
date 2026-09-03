@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { Toaster } from 'sonner';
 import { createClientForRequest } from '@/lib/supabase/server';
+import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { KdsBoard } from '@/components/kds/kds-board';
 import type { TenantSettings } from '@/types/database';
 
@@ -24,26 +25,22 @@ export default async function KdsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/kds');
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('tenant_id, role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (!profile?.tenant_id || !['tenant_owner', 'tenant_staff'].includes(profile.role)) {
-    notFound();
-  }
+  // Staff see their own restaurant; a super admin sees the one they are
+  // impersonating. A super admin has no tenant of their own, so without
+  // this the "Log in as" flow would land here on a 404.
+  const staff = await resolveStaffTenantId();
+  if (!staff) notFound();
 
   const [{ data: tenant }, { data: settings }] = await Promise.all([
     supabase
       .from('tenants')
       .select('id, name, timezone')
-      .eq('id', profile.tenant_id)
+      .eq('id', staff.tenantId)
       .maybeSingle(),
     supabase
       .from('tenant_settings')
       .select('*')
-      .eq('tenant_id', profile.tenant_id)
+      .eq('tenant_id', staff.tenantId)
       .maybeSingle(),
   ]);
 

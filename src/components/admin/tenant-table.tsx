@@ -77,9 +77,20 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
     });
     setImpersonating(null);
 
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string; redirectTo?: string }
+      | null;
+
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
       toast.error(body?.error ?? 'Could not start impersonation');
+      return;
+    }
+
+    // Cross-origin: admin.<root> -> app.<root>. router.push cannot leave the
+    // origin, so this is a full navigation. The impersonation cookie is
+    // scoped to the root domain, so it travels with it.
+    if (body?.redirectTo) {
+      window.location.assign(body.redirectTo);
       return;
     }
     router.refresh();

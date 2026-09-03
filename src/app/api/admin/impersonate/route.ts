@@ -5,6 +5,7 @@ import { requireSuperAdmin } from '@/lib/admin/guard';
 import {
   IMPERSONATION_COOKIE,
   IMPERSONATION_TTL_MS,
+  impersonationCookieOptions,
   impersonationSecret,
   signImpersonationToken,
 } from '@/lib/admin/impersonation';
@@ -65,12 +66,23 @@ export async function POST(request: NextRequest) {
     impersonationSecret(),
   );
 
-  const response = NextResponse.json({ session });
+  // Impersonation is for working inside a restaurant, so it ends on the
+  // staff dashboard, not on the console it was started from.
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
+  const proto = request.headers.get('x-forwarded-proto') ?? (root.startsWith('localhost') ? 'http' : 'https');
+  const redirectTo = `${proto}://app.${root}`;
+
+  // A browser form POST follows a 303 natively. A fetch() caller cannot:
+  // it transparently follows redirects and can never read the Location
+  // header, so it gets the target in the body and navigates itself.
+  const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
+
+  const response = wantsHtml
+    ? NextResponse.redirect(redirectTo, 303)
+    : NextResponse.json({ session, redirectTo });
+
   response.cookies.set(IMPERSONATION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
+    ...impersonationCookieOptions(),
     maxAge: Math.floor(IMPERSONATION_TTL_MS / 1000),
   });
   return response;
@@ -89,6 +101,10 @@ export async function DELETE() {
   if (user) await supabase.rpc('end_impersonation');
 
   const response = NextResponse.json({ ended: true });
-  response.cookies.set(IMPERSONATION_COOKIE, '', { path: '/', maxAge: 0 });
+  // Same scope as it was set with, or the browser keeps sending it.
+  response.cookies.set(IMPERSONATION_COOKIE, '', {
+    ...impersonationCookieOptions(),
+    maxAge: 0,
+  });
   return response;
 }
