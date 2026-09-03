@@ -57,8 +57,8 @@ export function __resetUberTokenCache(): void {
 export async function probeUberScope(
   scope: string,
 ): Promise<{ ok: boolean; status: number; code: string }> {
-  const clientId = process.env.UBER_DIRECT_CLIENT_ID;
-  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET;
+  const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
+  const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return { ok: false, status: 0, code: 'credentials_missing' };
 
   const params: Record<string, string> = {
@@ -119,7 +119,7 @@ export async function getUberAccessToken(now: number = Date.now()): Promise<stri
       // Eats marketplace integrations. Getting it wrong returns
       // invalid_scope with otherwise-valid credentials, which reads like a
       // credential problem and is not one.
-      scope: process.env.UBER_DIRECT_SCOPE ?? 'direct.organizations',
+      scope: process.env.UBER_DIRECT_SCOPE?.trim() ?? 'direct.organizations',
     }),
     signal: AbortSignal.timeout(10_000),
   });
@@ -279,3 +279,27 @@ export const createDelivery = dispatchDelivery;
 // Status mapping and fee conversion live outside this module's
 // `server-only` boundary so they can be unit-tested.
 export { mapUberStatus, quoteFeeCents, type DeliveryStatusValue } from './uber-status';
+
+
+/**
+ * Credential shape, with no credential content.
+ *
+ * Reports only lengths and whether the value carries surrounding
+ * whitespace — a trailing newline pasted through a dashboard fails
+ * authentication in a way indistinguishable from a wrong secret, and it
+ * is the cheapest cause to eliminate.
+ */
+export function uberCredentialShape(): Record<string, unknown> {
+  const rawId = process.env.UBER_DIRECT_CLIENT_ID ?? '';
+  const rawSecret = process.env.UBER_DIRECT_CLIENT_SECRET ?? '';
+  return {
+    clientIdLength: rawId.trim().length,
+    clientSecretLength: rawSecret.trim().length,
+    clientIdHadWhitespace: rawId !== rawId.trim(),
+    clientSecretHadWhitespace: rawSecret !== rawSecret.trim(),
+    // Uber client ids are opaque strings; a value that still looks like a
+    // dashboard label ("Client ID", a quoted value) is a paste error.
+    clientIdLooksQuoted: /^["']|["']$/.test(rawId.trim()),
+    clientSecretLooksQuoted: /^["']|["']$/.test(rawSecret.trim()),
+  };
+}

@@ -6,6 +6,7 @@ import {
   createDeliveryQuote,
   getUberAccessToken,
   probeUberScope,
+  uberCredentialShape,
 } from '@/lib/uber';
 
 /**
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
       error: error instanceof UberDirectError ? error.message : 'Authentication failed',
       scopeProbe: probes,
       configuredScope: process.env.UBER_DIRECT_SCOPE ?? 'direct.organizations',
+      credentialShape: uberCredentialShape(),
     };
     return NextResponse.json(result, { status: 502 });
   }
