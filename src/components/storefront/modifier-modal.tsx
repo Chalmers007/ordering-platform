@@ -220,7 +220,6 @@ export function ModifierModal({
 
           <Button
             className={`flex-1 ${preview ? 'bg-neutral-300 hover:bg-neutral-400' : ''}`}
-            disabled={preview}
             onClick={() => {
               if (violations.length > 0) {
                 setShowErrors(true);

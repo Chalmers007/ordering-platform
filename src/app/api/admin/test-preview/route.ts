@@ -240,14 +240,13 @@ async function linkPizzaModifiers(supabase: any, tenantId: string): Promise<void
 }
 
 export async function POST(request: NextRequest) {
-  // TEMPORARY: For E2E testing only. Verify modifiers seed correctly, then restore auth.
-  // const guard = await requireSuperAdmin();
-  // if (!guard.ok) {
-  //   return NextResponse.json(
-  //     { error: guard.reason === 'unauthenticated' ? 'Not signed in' : 'Forbidden' },
-  //     { status: guard.reason === 'unauthenticated' ? 401 : 403 },
-  //   );
-  // }
+  const guard = await requireSuperAdmin();
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.reason === 'unauthenticated' ? 'Not signed in' : 'Forbidden' },
+      { status: guard.reason === 'unauthenticated' ? 401 : 403 },
+    );
+  }
 
   const supabase = createServiceClient();
 
