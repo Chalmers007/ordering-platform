@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+# ...except the template, which is documentation and MUST ship with the repo.
+# Without this negation `.env*` swallows it and a fresh clone has no record
+# of which variables the app needs.
+!.env.example
 
 # vercel
 .vercel
