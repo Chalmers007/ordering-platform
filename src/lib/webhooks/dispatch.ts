@@ -62,6 +62,32 @@ export async function drainWebhookEvents(tenantId?: string): Promise<DrainResult
       continue;
     }
 
+    // The database stores facts, not URLs — it has no idea what domain this
+    // deployment answers on. The tracking link is assembled here, where the
+    // root domain is known, so a notification can carry a link the customer
+    // can actually open.
+    let payload = event.payload as Record<string, unknown>;
+    if (event.order_id) {
+      const { data: order } = await service
+        .from('orders')
+        .select('tracking_token, tenants(slug)')
+        .eq('id', event.order_id)
+        .maybeSingle();
+
+      const slug = (order?.tenants as { slug?: string } | null)?.slug;
+      const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+
+      if (order?.tracking_token && slug && root) {
+        const protocol = root.startsWith('localhost') ? 'http' : 'https';
+        payload = {
+          ...payload,
+          // The opaque token, not the order id: this link is opened from a
+          // text message, by someone who may not be signed in.
+          trackingUrl: `${protocol}://${slug}.${root}/orders/${order.tracking_token}`,
+        };
+      }
+    }
+
     const attempts = event.attempts + 1;
     let ok = false;
     let status: number | null = null;
@@ -71,7 +97,7 @@ export async function drainWebhookEvents(tenantId?: string): Promise<DrainResult
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: event.event_type, ...(event.payload as object) }),
+        body: JSON.stringify({ event: event.event_type, ...payload }),
         signal: AbortSignal.timeout(10_000),
       });
       status = response.status;

@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Phone } from 'lucide-react';
+import { ExternalLink, Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { OrderProgress } from './order-progress';
 import { DriverMap } from './driver-map';
+import { formatCents } from '@/lib/money';
 import type { FulfillmentType, OrderStatus } from '@/types/database';
 import type { TrackingResponse } from '@/app/api/dispatch/track/route';
 
@@ -146,6 +147,83 @@ export function TrackingView({
           Your order is on its way. The driver&apos;s location will appear here shortly.
         </p>
       ) : null}
+
+      {/*
+        A courier-hosted page is the one place the dispatch provider becomes
+        visible to a customer, so it is a plain secondary link rather than
+        the primary way to follow the order — the map above is ours.
+      */}
+      {tracking.courier_tracking_url && !settled ? (
+        <a
+          href={tracking.courier_tracking_url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-600 underline underline-offset-2"
+        >
+          Track with the courier
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+        </a>
+      ) : null}
+
+      {/* ---- what they ordered ---- */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-4">
+        <h2 className="font-semibold">
+          {tracking.order.fulfillment_type === 'delivery' ? 'Delivering' : 'For pickup'} ·{' '}
+          {tracking.order.customer_name}
+        </h2>
+
+        <ul className="mt-3 divide-y divide-neutral-100">
+          {tracking.order.items.map((item, index) => (
+            <li key={`${item.name}-${index}`} className="flex gap-3 py-2">
+              <span className="tabular-nums text-neutral-500">{item.quantity}&times;</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{item.name}</p>
+                {item.modifiers.length > 0 ? (
+                  <p className="text-sm text-neutral-500">{item.modifiers.join(', ')}</p>
+                ) : null}
+                {item.notes ? (
+                  <p className="text-sm italic text-neutral-500">{item.notes}</p>
+                ) : null}
+              </div>
+              <span className="tabular-nums text-neutral-700">
+                {formatCents(item.lineTotalCents, tracking.order.currency)}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <dl className="mt-3 space-y-1 border-t border-neutral-200 pt-3 text-sm">
+          <Row label="Subtotal" value={formatCents(tracking.order.subtotal_cents, tracking.order.currency)} />
+          {tracking.order.discount_cents > 0 ? (
+            <Row label="Discount" value={`-${formatCents(tracking.order.discount_cents, tracking.order.currency)}`} />
+          ) : null}
+          {tracking.order.delivery_fee_cents > 0 ? (
+            <Row label="Delivery" value={formatCents(tracking.order.delivery_fee_cents, tracking.order.currency)} />
+          ) : null}
+          {tracking.order.service_fee_cents > 0 ? (
+            <Row label="Service fee" value={formatCents(tracking.order.service_fee_cents, tracking.order.currency)} />
+          ) : null}
+          {tracking.order.tech_fee_cents > 0 ? (
+            <Row label="Technology fee" value={formatCents(tracking.order.tech_fee_cents, tracking.order.currency)} />
+          ) : null}
+          {tracking.order.tax_cents > 0 ? (
+            <Row label="Tax" value={formatCents(tracking.order.tax_cents, tracking.order.currency)} />
+          ) : null}
+          {tracking.order.tip_cents > 0 ? (
+            <Row label="Tip" value={formatCents(tracking.order.tip_cents, tracking.order.currency)} />
+          ) : null}
+          <Row label="Total" value={formatCents(tracking.order.total_cents, tracking.order.currency)} emphasis />
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+function Row({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div className={`flex justify-between ${emphasis ? 'pt-1.5 text-base font-semibold' : ''}`}>
+      <dt className={emphasis ? '' : 'text-neutral-600'}>{label}</dt>
+      <dd className="tabular-nums">{value}</dd>
     </div>
   );
 }

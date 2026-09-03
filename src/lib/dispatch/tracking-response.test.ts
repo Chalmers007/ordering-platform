@@ -23,6 +23,20 @@ const pollutedRow = {
   latitude: 35.7796,
   longitude: -78.6382,
   estimated_delivery_at: '2026-09-02T18:12:00.000Z',
+  customer_name: 'Dana Q',
+  items: [
+    { name: 'Margherita', quantity: 2, lineTotalCents: 2800, notes: null, modifiers: ['Large'] },
+  ],
+  subtotal_cents: 2800,
+  discount_cents: 0,
+  tax_cents: 245,
+  tip_cents: 400,
+  delivery_fee_cents: 499,
+  service_fee_cents: 0,
+  tech_fee_cents: 100,
+  total_cents: 4044,
+  currency: 'USD',
+  courier_tracking_url: 'https://track.shipday.com/abc123',
 
   // None of these are part of the response type; they stand in for columns
   // that exist on the row or could be added to it later.
@@ -41,6 +55,7 @@ describe('tracking response shaping', () => {
     const body = toTrackingResponse(pollutedRow);
 
     expect(Object.keys(body).sort()).toEqual([
+      'courier_tracking_url',
       'driver_name',
       'driver_phone',
       'estimated_eta',
@@ -50,22 +65,54 @@ describe('tracking response shaping', () => {
     ]);
     expect(Object.keys(body.order).sort()).toEqual([
       'completed_at',
+      'currency',
+      'customer_name',
+      'delivery_fee_cents',
+      'discount_cents',
       'fulfillment_type',
+      'items',
       'number',
       'placed_at',
       'promised_at',
+      'service_fee_cents',
       'status',
+      'subtotal_cents',
+      'tax_cents',
+      'tech_fee_cents',
+      'tip_cents',
+      'total_cents',
     ]);
   });
 
   it('leaks no vendor name, job reference, or credential', () => {
-    const serialised = JSON.stringify(toTrackingResponse(pollutedRow)).toLowerCase();
+    const body = toTrackingResponse(pollutedRow);
+
+    // courier_tracking_url is the ONE deliberate exception: a
+    // courier-hosted page necessarily carries the courier's domain. It is
+    // excluded here so the guard stays meaningful everywhere else rather
+    // than being deleted the first time it fires.
+    const { courier_tracking_url: _courierUrl, ...rest } = body;
+    const serialised = JSON.stringify(rest).toLowerCase();
 
     for (const term of VENDOR_TERMS) {
       expect(serialised, `"${term}" must not appear in a client response`).not.toContain(term);
     }
     expect(serialised).not.toContain('shipday_job_98765');
     expect(serialised).not.toContain('sk_live_courier_do_not_leak');
+  });
+
+  it('carries the order itself, not just where the driver is', () => {
+    const body = toTrackingResponse(pollutedRow);
+
+    expect(body.order.items).toHaveLength(1);
+    expect(body.order.items[0]).toMatchObject({ name: 'Margherita', quantity: 2 });
+    expect(body.order.total_cents).toBe(4044);
+    expect(body.order.customer_name).toBe('Dana Q');
+  });
+
+  it('reports no items rather than crashing when the aggregate is empty', () => {
+    const empty = { ...pollutedRow, items: null } as unknown as TrackingRow;
+    expect(toTrackingResponse(empty).order.items).toEqual([]);
   });
 
   it('still returns what the customer needs', () => {

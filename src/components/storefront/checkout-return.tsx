@@ -39,7 +39,7 @@ export function CheckoutReturn({ sessionId }: { sessionId: string }) {
       if (row?.order_id) {
         // The cart is only cleared once the order provably exists.
         clear();
-        router.replace(`/orders/${row.order_id}/track?status=success`);
+        router.replace(`/orders/${row.order_id}?status=success`);
         return;
       }
 

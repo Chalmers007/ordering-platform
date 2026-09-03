@@ -163,6 +163,7 @@ Deno.serve(async (req) => {
 
   // ---- provider call --------------------------------------------------
   let providerRef: string | null = null;
+  let trackingUrl: string | null = null;
   try {
     const response = await fetch(`${DISPATCH_API_BASE_URL}/orders`, {
       method: 'POST',
@@ -182,8 +183,13 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Courier dispatch was rejected' }, 502);
     }
 
-    const result = (await response.json()) as { orderId?: number | string };
+    const result = (await response.json()) as {
+      orderId?: number | string;
+      trackingLink?: string;
+      trackingUrl?: string;
+    };
     providerRef = result?.orderId != null ? String(result.orderId) : null;
+    trackingUrl = result?.trackingLink ?? result?.trackingUrl ?? null;
   } catch (error) {
     console.error('dispatch call failed', error);
     return json({ ok: false, error: 'Courier dispatch is unavailable' }, 503);
@@ -197,6 +203,7 @@ Deno.serve(async (req) => {
     p_order_id: orderId,
     p_external_ref: providerRef,
     p_status: 'assigned',
+    p_tracking_url: trackingUrl,
   });
 
   if (recordError) {

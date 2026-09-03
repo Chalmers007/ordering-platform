@@ -66,15 +66,7 @@ export type Database = {
           user_id?: string | null
           user_role?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "audit_logs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       checkout_sessions: {
         Row: {
@@ -265,6 +257,7 @@ export type Database = {
           picked_up_at: string | null
           status: Database["public"]["Enums"]["delivery_status"]
           tenant_id: string
+          tracking_url: string | null
           updated_at: string
         }
         Insert: {
@@ -289,6 +282,7 @@ export type Database = {
           picked_up_at?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
           tenant_id: string
+          tracking_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -313,6 +307,7 @@ export type Database = {
           picked_up_at?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
           tenant_id?: string
+          tracking_url?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1774,13 +1769,19 @@ export type Database = {
         Args: { p_order_id?: string; p_token?: string }
         Returns: {
           completed_at: string
+          courier_tracking_url: string
+          currency: string
+          customer_name: string
+          delivery_fee_cents: number
           delivery_status: Database["public"]["Enums"]["delivery_status"]
+          discount_cents: number
           driver_name: string
           driver_phone: string
           estimated_delivery_at: string
           fulfillment_type: Database["public"]["Enums"]["fulfillment_type"]
           has_external_ref: boolean
           heading: number
+          items: Json
           latitude: number
           location_updated_at: string
           longitude: number
@@ -1789,7 +1790,13 @@ export type Database = {
           order_status: Database["public"]["Enums"]["order_status"]
           placed_at: string
           promised_at: string
+          service_fee_cents: number
+          subtotal_cents: number
+          tax_cents: number
+          tech_fee_cents: number
           tenant_id: string
+          tip_cents: number
+          total_cents: number
         }[]
       }
       get_order_by_tracking_token: {
@@ -1908,16 +1915,28 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      record_dispatch_reference: {
-        Args: {
-          p_estimated_delivery_at?: string
-          p_estimated_pickup_at?: string
-          p_external_ref: string
-          p_order_id: string
-          p_status?: Database["public"]["Enums"]["delivery_status"]
-        }
-        Returns: undefined
-      }
+      record_dispatch_reference:
+        | {
+            Args: {
+              p_estimated_delivery_at?: string
+              p_estimated_pickup_at?: string
+              p_external_ref: string
+              p_order_id: string
+              p_status?: Database["public"]["Enums"]["delivery_status"]
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_estimated_delivery_at?: string
+              p_estimated_pickup_at?: string
+              p_external_ref: string
+              p_order_id: string
+              p_status?: Database["public"]["Enums"]["delivery_status"]
+              p_tracking_url?: string
+            }
+            Returns: undefined
+          }
       resolve_checkout_order: {
         Args: { p_session_id: string }
         Returns: {
