@@ -1366,6 +1366,9 @@ export type Database = {
       }
       tenants: {
         Row: {
+          claim_token: string | null
+          claim_token_expires_at: string | null
+          claimed_at: string | null
           created_at: string
           currency: string
           id: string
@@ -1387,6 +1390,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          claim_token?: string | null
+          claim_token_expires_at?: string | null
+          claimed_at?: string | null
           created_at?: string
           currency?: string
           id?: string
@@ -1408,6 +1414,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          claim_token?: string | null
+          claim_token_expires_at?: string | null
+          claimed_at?: string | null
           created_at?: string
           currency?: string
           id?: string
@@ -1702,6 +1711,45 @@ export type Database = {
       }
       auth_tenant_id: { Args: never; Returns: string }
       can_manage_tenant: { Args: { p_tenant_id: string }; Returns: boolean }
+      claim_tenant: {
+        Args: {
+          p_email: string
+          p_full_name?: string
+          p_phone?: string
+          p_token: string
+          p_user_id: string
+        }
+        Returns: {
+          claim_token: string | null
+          claim_token_expires_at: string | null
+          claimed_at: string | null
+          created_at: string
+          currency: string
+          id: string
+          legal_name: string | null
+          locale: string
+          name: string
+          onboarded_at: string | null
+          slug: string
+          status: Database["public"]["Enums"]["tenant_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: Database["public"]["Enums"]["subscription_status"]
+          support_email: string | null
+          support_phone: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
+          timezone: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       complete_customer_account: {
         Args: {
           p_email?: string
@@ -1830,6 +1878,9 @@ export type Database = {
           p_trial_days?: number
         }
         Returns: {
+          claim_token: string | null
+          claim_token_expires_at: string | null
+          claimed_at: string | null
           created_at: string
           currency: string
           id: string
@@ -1949,6 +2000,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      verify_claim_token: {
+        Args: { p_token: string }
+        Returns: {
+          category_count: number
+          expires_at: string
+          item_count: number
+          name: string
+          slug: string
+          tenant_id: string
+        }[]
+      }
     }
     Enums: {
       audit_action: "INSERT" | "UPDATE" | "DELETE"
@@ -1997,7 +2059,12 @@ export type Database = {
         | "canceled"
         | "incomplete"
         | "unpaid"
-      tenant_status: "pending" | "active" | "suspended" | "cancelled"
+      tenant_status:
+        | "pending"
+        | "active"
+        | "suspended"
+        | "cancelled"
+        | "pending_claim"
       user_role: "super_admin" | "tenant_owner" | "tenant_staff" | "customer"
       webhook_delivery_status:
         | "pending"
@@ -2191,7 +2258,13 @@ export const Constants = {
         "incomplete",
         "unpaid",
       ],
-      tenant_status: ["pending", "active", "suspended", "cancelled"],
+      tenant_status: [
+        "pending",
+        "active",
+        "suspended",
+        "cancelled",
+        "pending_claim",
+      ],
       user_role: ["super_admin", "tenant_owner", "tenant_staff", "customer"],
       webhook_delivery_status: [
         "pending",

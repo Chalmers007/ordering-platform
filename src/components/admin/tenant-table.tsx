@@ -36,6 +36,7 @@ const STATUS_FILTERS: { id: TenantStatus | 'all'; label: string }[] = [
   { id: 'all', label: 'All statuses' },
   { id: 'active', label: 'Active' },
   { id: 'pending', label: 'Pending' },
+  { id: 'pending_claim', label: 'Awaiting claim' },
   { id: 'suspended', label: 'Suspended' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
@@ -43,6 +44,7 @@ const STATUS_FILTERS: { id: TenantStatus | 'all'; label: string }[] = [
 const STATUS_STYLES: Record<TenantStatus, string> = {
   active: 'bg-emerald-100 text-emerald-800',
   pending: 'bg-sky-100 text-sky-800',
+  pending_claim: 'bg-violet-100 text-violet-800',
   suspended: 'bg-amber-100 text-amber-900',
   cancelled: 'bg-neutral-200 text-neutral-700',
 };

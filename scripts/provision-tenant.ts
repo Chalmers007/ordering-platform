@@ -4,6 +4,10 @@
  *   node --env-file=.env.production.local scripts/provision-tenant.ts \
  *     --name "Vardr Demo" --slug demo
  *
+ * Add --claim to build it for outreach: the tenant starts as
+ * pending_claim, a single-use token is minted, and the script prints the
+ * link to send. --claim-days sets the expiry (default 30).
+ *
  * This is the bootstrap path, not the normal one. Normally a restaurant is
  * created through POST /api/admin/tenants, which calls provision_tenant()
  * — but that RPC checks is_super_admin(), and the service role has no
@@ -13,6 +17,7 @@
  * Idempotent on slug.
  */
 
+import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../src/types/database.ts';
 
@@ -29,8 +34,24 @@ const arg = (flag: string): string | undefined => {
   return i > -1 ? process.argv[i + 1] : undefined;
 };
 
+/** Business name -> subdomain label. */
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 const name = arg('--name') ?? 'Vardr Demo';
-const slug = (arg('--slug') ?? 'demo').toLowerCase();
+const slug = arg('--slug') ? slugify(arg('--slug')!) : slugify(name);
+
+/**
+ * Outreach mode: the tenant is built in advance and handed over by link,
+ * so it starts as `pending_claim` — the storefront refuses to serve until
+ * an owner claims it, but /claim still works on the subdomain.
+ */
+const forClaim = process.argv.includes('--claim');
+const claimDays = Number(arg('--claim-days') ?? '30');
 
 const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -312,8 +333,8 @@ async function main(): Promise<void> {
       .insert({
         slug,
         name,
-        status: 'active',
-        subscription_status: 'active',
+        status: forClaim ? 'pending_claim' : 'active',
+        subscription_status: forClaim ? 'trialing' : 'active',
         timezone: 'America/New_York',
         currency: 'USD',
         support_email: `hello@${slug}.example`,
@@ -368,6 +389,43 @@ async function main(): Promise<void> {
   await seedMenu(tenantId);
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
+
+  if (forClaim) {
+    // Minted here rather than defaulted in SQL so it is only ever created
+    // for a tenant actually being sent out, and so re-running does not
+    // silently invalidate a link already in someone's inbox.
+    const { data: current } = await supabase
+      .from('tenants')
+      .select('claim_token, claim_token_expires_at, status')
+      .eq('id', tenantId)
+      .single();
+
+    let token = current?.claim_token ?? null;
+
+    if (!token || current?.status !== 'pending_claim') {
+      token = randomUUID();
+      const expiresAt = new Date(Date.now() + claimDays * 86_400_000).toISOString();
+
+      const { error } = await supabase
+        .from('tenants')
+        .update({
+          status: 'pending_claim',
+          claim_token: token,
+          claim_token_expires_at: expiresAt,
+        })
+        .eq('id', tenantId);
+
+      if (error) throw new Error(`Could not mint a claim token: ${error.message}`);
+      console.log(`\nClaim link expires in ${claimDays} days`);
+    } else {
+      console.log('\nReusing the existing claim link (still unclaimed)');
+    }
+
+    console.log(`\nSend this:\n  https://${slug}.${root}/claim?token=${token}`);
+    console.log(`\nStorefront goes live the moment they claim it: https://${slug}.${root}`);
+    return;
+  }
+
   console.log(`\nStorefront: https://${slug}.${root}`);
 }
 

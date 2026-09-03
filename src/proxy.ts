@@ -166,6 +166,17 @@ export async function proxy(request: NextRequest) {
   // under a surface prefix any more than /api is.
   const isAuthRoute = pathname.startsWith('/auth/');
 
+  // The claim link is how a restaurant takes possession of a storefront
+  // that is deliberately NOT yet active, so this one path has to survive
+  // both the surface rewrite and the status gate below. Everything else on
+  // a pending tenant still refuses to serve.
+  // Both the page AND its endpoint: /api/claim is how the storefront is
+  // taken over, so blocking it on an unclaimed tenant makes claiming
+  // impossible — and it fails as a 200 serving the "not claimed" page,
+  // which looks like success to anything reading status codes.
+  const isClaimRoute =
+    pathname === '/claim' || pathname.startsWith('/claim/') || pathname === '/api/claim';
+
   // Impersonation, on the two staff-facing surfaces only. The cookie is
   // verified here so nothing downstream has to trust a raw cookie value,
   // and the header it sets is what makes audit_logs.impersonated true.
@@ -245,6 +256,10 @@ export async function proxy(request: NextRequest) {
       requestHeaders.set(TENANT_SLUG_HEADER, tenant.slug);
       requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent(tenant.name));
       requestHeaders.set(TENANT_STATUS_HEADER, tenant.status);
+
+      if (isClaimRoute) {
+        return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+      }
 
       if (tenant.status !== 'active') {
         return applyCookies(

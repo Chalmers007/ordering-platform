@@ -20,6 +20,11 @@ const REASONS = {
     title: 'Not open yet',
     body: 'This restaurant is still setting up its online ordering.',
   },
+  pending_claim: {
+    status: 404,
+    title: 'Not claimed yet',
+    body: 'This storefront has been prepared but the restaurant has not taken it over yet. If it is yours, use the claim link you were sent.',
+  },
   suspended: {
     status: 503,
     title: 'Temporarily unavailable',
