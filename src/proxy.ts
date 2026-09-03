@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { resolveHost } from '@/lib/tenancy/host';
+import type { TenantStatus } from '@/types/database';
 import {
   IMPERSONATION_COOKIE,
   IMPERSONATION_HEADER,
@@ -44,6 +45,14 @@ export const TENANT_NAME_HEADER = 'x-tenant-name';
 export const TENANT_STATUS_HEADER = 'x-tenant-status';
 export const SURFACE_HEADER = 'x-surface';
 export const HOSTNAME_HEADER = 'x-hostname';
+/**
+ * Set only for a storefront whose tenant is still `pending_claim`.
+ *
+ * Stripped from every inbound request alongside the other tenancy headers, so
+ * a visitor cannot forge it — and it only ever REMOVES capability (it turns
+ * ordering off), so forging it would gain nothing.
+ */
+export const TENANT_PREVIEW_HEADER = 'x-tenant-preview';
 
 const SPOOFABLE_HEADERS = [
   TENANT_ID_HEADER,
@@ -52,6 +61,7 @@ const SPOOFABLE_HEADERS = [
   TENANT_STATUS_HEADER,
   SURFACE_HEADER,
   HOSTNAME_HEADER,
+  TENANT_PREVIEW_HEADER,
   IMPERSONATION_HEADER,
   IMPERSONATION_SESSION_HEADER,
 ];
@@ -60,7 +70,11 @@ type StorefrontTenant = {
   tenant_id: string;
   slug: string;
   name: string;
-  status: 'pending' | 'active' | 'suspended' | 'cancelled';
+  // The canonical enum, not a hand-copied union. The literal list here had
+  // never been updated with 'pending_claim', so the middleware's own type did
+  // not know the status existed — which is how every staged storefront fell
+  // silently into the "not claimed yet" page.
+  status: TenantStatus;
   is_custom_domain: boolean;
 };
 
@@ -261,7 +275,21 @@ export async function proxy(request: NextRequest) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
       }
 
-      if (tenant.status !== 'active') {
+      // A storefront awaiting its owner is SHOWN, not hidden.
+      //
+      // It was built from the restaurant's own published menu so they can see
+      // what they would be buying before deciding — "Not claimed yet" leaves a
+      // prospect nothing to look at. Every other non-active status stays
+      // hidden: 'suspended' and 'cancelled' are storefronts that must go dark,
+      // not demos.
+      //
+      // Viewing changes nothing: the tenant stays pending_claim, this header
+      // is the only difference, and ordering is refused three independent ways
+      // (see the storefront page).
+      const isPreview = tenant.status === 'pending_claim';
+      if (isPreview) requestHeaders.set(TENANT_PREVIEW_HEADER, '1');
+
+      if (!isPreview && tenant.status !== 'active') {
         return applyCookies(
           rewrite(request, `/storefront-unavailable/${tenant.status}`, requestHeaders),
         );
