@@ -31,7 +31,7 @@
 --    In the Supabase SQL Editor, replace the literal below directly.
 do $$
 declare
-  v_email  constant text := 'admin@yourdomain.com';   -- <<< CHANGE ME
+  v_email  constant text := 'info@vardros.com';   -- <<< the first platform administrator
   v_user   uuid;
 begin
   select id into v_user from auth.users where lower(email) = lower(v_email);

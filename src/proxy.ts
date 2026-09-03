@@ -11,6 +11,12 @@ import {
 /**
  * Next.js request proxy: one request, three products.
  *
+ * Next 16 renamed middleware to proxy. There must be exactly ONE of
+ * these files: when both exist the build fails, and before it failed a
+ * stale proxy.ts silently took precedence over the middleware being
+ * edited — which is how routing fixes can appear to work locally and
+ * ship broken.
+ *
  *   admin.<root>        -> /admin/*       platform super-admin
  *   app.<root>          -> /app/*         restaurant staff dashboard + KDS
  *   <tenant>.<root>     -> /store/*       white-labelled storefront
@@ -155,6 +161,11 @@ export async function proxy(request: NextRequest) {
   // They still receive the resolved tenant headers.
   const isApiRoute = pathname.startsWith('/api');
 
+  // Emailed links (owner invitations, magic links, password recovery) land
+  // on /auth/callback. It is one shared route, so it must not be rewritten
+  // under a surface prefix any more than /api is.
+  const isAuthRoute = pathname.startsWith('/auth/');
+
   // Impersonation, on the two staff-facing surfaces only. The cookie is
   // verified here so nothing downstream has to trust a raw cookie value,
   // and the header it sets is what makes audit_logs.impersonated true.
@@ -194,15 +205,21 @@ export async function proxy(request: NextRequest) {
     case 'app': {
       const prefix = resolution.surface === 'admin' ? '/admin' : '/app';
 
-      if (isApiRoute) {
+      if (isApiRoute || isAuthRoute) {
         // An unauthenticated API call must get a 401 from the handler, not a
-        // redirect to an HTML login page.
+        // redirect to an HTML login page — and the auth callback is what
+        // creates the session, so it can never require one.
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
       }
 
       if (!user && !pathname.startsWith('/login')) {
         const login = request.nextUrl.clone();
-        login.pathname = `${prefix}/login`;
+        // The PUBLIC path, not the internal one. On this host the browser
+        // asks for `/login`; `${prefix}/login` is only what we rewrite it to.
+        // Redirecting to the rewritten path returns a URL whose pathname is
+        // `/admin/login`, which does not start with `/login` — so the next
+        // request redirects again and `next` nests forever.
+        login.pathname = '/login';
         login.search = `?next=${encodeURIComponent(pathname + search)}`;
         return applyCookies(NextResponse.redirect(login));
       }
@@ -235,7 +252,7 @@ export async function proxy(request: NextRequest) {
         );
       }
 
-      if (isApiRoute) {
+      if (isApiRoute || isAuthRoute) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
       }
 
