@@ -96,7 +96,7 @@ export function MenuBrowser({
               onClick={() => setFulfillment(mode)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
                 cart.fulfillmentType === mode
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[var(--brand-primary)] text-white'
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
@@ -153,7 +153,7 @@ export function MenuBrowser({
                   aria-pressed={active}
                   className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium uppercase tracking-wide transition ${
                     active
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[var(--brand-primary)] text-white'
                       : 'border border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400'
                   }`}
                 >
@@ -247,7 +247,7 @@ export function MenuBrowser({
                         onClick={() => openItem(item)}
                         disabled={disabled}
                         aria-label={`Add ${item.name}`}
-                        className="relative z-10 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                        className="relative z-10 rounded-lg bg-[var(--brand-primary)] px-4 py-1.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:opacity-100"
                       >
                         + Add
                       </button>
