@@ -5,6 +5,7 @@ import { ErrorFeed } from '@/components/admin/error-feed';
 import { CreateTestPreviewButton } from '@/components/admin/create-test-preview-button';
 import { TestUberBtn } from '@/components/admin/test-uber-btn';
 import { CheckTenantConfig } from '@/components/admin/check-tenant-config';
+import { StoreUberIdForm } from '@/components/admin/store-uber-id-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,8 @@ export default async function AdminOverviewPage() {
           <CreateTestPreviewButton />
         </div>
       </div>
+
+      <StoreUberIdForm />
 
       {metrics ? (
         <div className="mt-4">
