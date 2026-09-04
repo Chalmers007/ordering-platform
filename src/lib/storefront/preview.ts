@@ -24,7 +24,7 @@ export async function isPreviewRequest(): Promise<boolean> {
  * issued from after someone has spoken to the business.
  */
 export function claimCtaHref(): string {
-  return process.env.NEXT_PUBLIC_CLAIM_CTA_URL?.trim() || '/claim';
+  return '/sales/activate';
 }
 
 /**
@@ -36,5 +36,5 @@ export function claimCtaHref(): string {
  * booking link is configured, so the button is never a dead end.
  */
 export function walkthroughCtaHref(): string {
-  return process.env.NEXT_PUBLIC_WALKTHROUGH_URL?.trim() || claimCtaHref();
+  return '/sales/walkthrough';
 }

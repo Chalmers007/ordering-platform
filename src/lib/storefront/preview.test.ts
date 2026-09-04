@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 const PROXY = readFileSync('src/proxy.ts', 'utf8');
@@ -6,8 +6,7 @@ const PAGE = readFileSync('src/app/(storefront)/store/page.tsx', 'utf8');
 const CHECKOUT = readFileSync('src/app/(storefront)/store/checkout/page.tsx', 'utf8');
 const BANNER = readFileSync('src/components/storefront/preview-banner.tsx', 'utf8');
 const PREVIEW = readFileSync('src/lib/storefront/preview.ts', 'utf8');
-
-afterEach(() => { delete process.env.NEXT_PUBLIC_CLAIM_CTA_URL; vi.resetModules(); });
+const SALES = readFileSync('src/app/(storefront)/store/sales/[intent]/page.tsx', 'utf8');
 
 describe('public preview access', () => {
   it('pending_claim renders the storefront instead of the unavailable page', () => {
@@ -79,16 +78,17 @@ describe('what the preview shows and hides', () => {
     // A claim link grants ownership to whoever opens it. On a public page that
     // is the whole storefront handed to the first stranger who looks.
     expect(PREVIEW).not.toMatch(/claim_token|token=/);
-    expect(PREVIEW).toMatch(/NEXT_PUBLIC_CLAIM_CTA_URL/);
+    expect(PREVIEW).toMatch(/return '\/sales\/activate'/);
+    expect(PREVIEW).toMatch(/return '\/sales\/walkthrough'/);
   });
 
-  it('the CTA is configurable and defaults to the claim route', async () => {
+  it('uses separate safe handoffs and never falls back to a tokenless claim page', async () => {
     const { claimCtaHref } = await import('./preview');
-    expect(claimCtaHref()).toBe('/claim');
-    process.env.NEXT_PUBLIC_CLAIM_CTA_URL = 'https://sales.example/get-started';
-    vi.resetModules();
-    const again = await import('./preview');
-    expect(again.claimCtaHref()).toBe('https://sales.example/get-started');
+    expect(claimCtaHref()).toBe('/sales/activate');
+    expect(PREVIEW).not.toMatch(/return ['"]\/claim/);
+    expect(SALES).toMatch(/ACTIVATION_SALES_URL/);
+    expect(SALES).toMatch(/WALKTHROUGH_SALES_URL/);
+    expect(SALES).toMatch(/safeHttpUrl/);
   });
 });
 

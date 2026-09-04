@@ -131,8 +131,8 @@ export function ClaimForm({
         </Button>
 
         <p className="mt-3 text-xs text-neutral-500">
-          Claiming activates your storefront immediately. You can change the menu, hours and
-          branding straight afterwards.
+          Claiming opens your private dashboard. Your storefront stays offline until you confirm
+          the menu, upload your branding, and activate it.
         </p>
       </form>
       <Toaster position="top-center" richColors />

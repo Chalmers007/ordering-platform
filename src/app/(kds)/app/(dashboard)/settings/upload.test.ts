@@ -5,14 +5,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  *
  * Verify:
  * - File type validation (JPG, PNG, WebP only)
- * - File size limits (5MB max)
+ * - File size limits (2MB max, matching the production bucket)
  * - Tenant isolation in storage paths
  * - URL generation
  * - Error handling
  */
 
 describe('brandingImageUpload', () => {
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const MAX_FILE_SIZE = 2 * 1024 * 1024;
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
   describe('file validation', () => {
@@ -48,12 +48,12 @@ describe('brandingImageUpload', () => {
   });
 
   describe('file size limits', () => {
-    it('accepts files under 5MB', () => {
+    it('accepts files under 2MB', () => {
       const size = 1024 * 1024; // 1MB
       expect(size).toBeLessThanOrEqual(MAX_FILE_SIZE);
     });
 
-    it('accepts files at exactly 5MB', () => {
+    it('accepts files at exactly 2MB', () => {
       expect(MAX_FILE_SIZE).toBeLessThanOrEqual(MAX_FILE_SIZE);
     });
 
@@ -66,7 +66,7 @@ describe('brandingImageUpload', () => {
       const size = 10 * 1024 * 1024; // 10MB
       const maxMB = (MAX_FILE_SIZE / 1024 / 1024).toFixed(0);
       const message = `File must be smaller than ${maxMB}MB`;
-      expect(message).toContain('5MB');
+      expect(message).toContain('2MB');
     });
   });
 
@@ -106,11 +106,11 @@ describe('brandingImageUpload', () => {
   describe('public URL generation', () => {
     it('builds Supabase public storage URL', () => {
       const base = 'https://project.supabase.co';
-      const bucket = 'branding';
+      const bucket = 'brand-assets';
       const path = 'tenant-123/logo-1234567890.jpg';
       const url = `${base}/storage/v1/object/public/${bucket}/${path}`;
       expect(url).toBe(
-        'https://project.supabase.co/storage/v1/object/public/branding/tenant-123/logo-1234567890.jpg',
+        'https://project.supabase.co/storage/v1/object/public/brand-assets/tenant-123/logo-1234567890.jpg',
       );
       expect(url).toContain('/public/');
     });
@@ -118,7 +118,7 @@ describe('brandingImageUpload', () => {
     it('constructs URL with environment base', () => {
       // In production, NEXT_PUBLIC_SUPABASE_URL is set via .env.local or Vercel env
       const mockBase = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://project.supabase.co';
-      const url = `${mockBase}/storage/v1/object/public/branding/tenant/logo.jpg`;
+      const url = `${mockBase}/storage/v1/object/public/brand-assets/tenant/logo.jpg`;
       expect(url).toContain('/storage/v1/object/public/');
     });
   });
@@ -159,7 +159,7 @@ describe('brandingImageUpload', () => {
 
     it('handles oversized file error', () => {
       const size = 10 * 1024 * 1024;
-      const maxSize = 5 * 1024 * 1024;
+      const maxSize = 2 * 1024 * 1024;
       const isValid = size <= maxSize;
       expect(isValid).toBe(false);
     });

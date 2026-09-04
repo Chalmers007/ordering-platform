@@ -4,14 +4,14 @@ import { createClientForRequest, createServiceClient } from '@/lib/supabase/serv
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import type { ActionResult } from '@/types/database';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // Matches the brand-assets bucket limit.
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const BUCKET = 'branding';
+const BUCKET = 'brand-assets';
 
 /**
  * Upload a branding image (logo or hero banner) to tenant-isolated storage.
  *
- * Files are stored at: branding/{tenantId}/logo-{timestamp}.{ext}
+ * Files are stored at: brand-assets/{tenantId}/logo-{timestamp}.{ext}
  * Returns the public URL for immediate use in the settings form.
  */
 export async function uploadBrandingImage(
