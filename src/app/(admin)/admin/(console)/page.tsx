@@ -3,6 +3,7 @@ import { MetricsGrid } from '@/components/admin/metrics-grid';
 import { TenantTable, type TenantRow } from '@/components/admin/tenant-table';
 import { ErrorFeed } from '@/components/admin/error-feed';
 import { CreateTestPreviewButton } from '@/components/admin/create-test-preview-button';
+import { TestUberBtn } from '@/components/admin/test-uber-btn';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,10 @@ export default async function AdminOverviewPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Overview</h1>
-        <CreateTestPreviewButton />
+        <div className="flex gap-2">
+          <TestUberBtn />
+          <CreateTestPreviewButton />
+        </div>
       </div>
 
       {metrics ? (
