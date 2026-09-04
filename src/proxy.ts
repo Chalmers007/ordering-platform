@@ -226,16 +226,22 @@ export async function proxy(request: NextRequest) {
     hostname === 'order.localhost:3000';
 
   if (isOrderVardros) {
+    // Redirect /login to /app/login (login exists at /app/login, not /login)
+    if (pathname === '/login') {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = '/app/login';
+      return applyCookies(NextResponse.redirect(loginUrl));
+    }
+
     // Set tenant headers for the vardr-upload-test tenant on all requests
     requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
     requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
     requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
     requestHeaders.set(TENANT_STATUS_HEADER, 'active');
 
-    // For staff routes (/login, /app, /admin, /api), pass through without rewriting.
+    // For other staff routes (/app, /admin, /api), pass through without rewriting.
     // Surface routing will handle these correctly via the main switch statement.
     const isStaffOrApi =
-      pathname.startsWith('/login') ||
       pathname.startsWith('/app') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/api');
