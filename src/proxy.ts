@@ -226,7 +226,14 @@ export async function proxy(request: NextRequest) {
     hostname === 'order.localhost:3000';
 
   if (isOrderVardros) {
-    // For staff routes, pass through without rewriting
+    // Set tenant headers for the vardr-upload-test tenant on all requests
+    requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
+    requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
+    requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
+    requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+
+    // For staff routes (/login, /app, /admin, /api), pass through without rewriting.
+    // Surface routing will handle these correctly via the main switch statement.
     const isStaffOrApi =
       pathname.startsWith('/login') ||
       pathname.startsWith('/app') ||
@@ -234,35 +241,18 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith('/api');
 
     if (isStaffOrApi) {
-      // Set tenant headers for the vardr-upload-test tenant
-      requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
-      requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
-      requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
-      requestHeaders.set(TENANT_STATUS_HEADER, 'active');
-      requestHeaders.set(SURFACE_HEADER, 'storefront');
-
       return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
     }
 
-    // For root path, rewrite to the test tenant's storefront
+    // For root path, rewrite directly to /store
     if (pathname === '/' || pathname === '') {
-      requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
-      requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
-      requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
-      requestHeaders.set(TENANT_STATUS_HEADER, 'active');
       requestHeaders.set(SURFACE_HEADER, 'storefront');
-
-      return applyCookies(rewrite(request, '/store/vardr-upload-test', requestHeaders));
+      return applyCookies(rewrite(request, '/store', requestHeaders));
     }
 
-    // For other storefront paths, rewrite them to /store/vardr-upload-test/path
-    requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
-    requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
-    requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
-    requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+    // For other storefront paths, rewrite them to /store{pathname}
     requestHeaders.set(SURFACE_HEADER, 'storefront');
-
-    return applyCookies(rewrite(request, `/store/vardr-upload-test${pathname}`, requestHeaders));
+    return applyCookies(rewrite(request, `/store${pathname}`, requestHeaders));
   }
 
   // ---- Surface routing -----------------------------------------------
