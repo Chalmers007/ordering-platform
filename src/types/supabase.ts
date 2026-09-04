@@ -1724,40 +1724,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      activate_storefront: {
-        Args: { p_tenant_id: string }
-        Returns: {
-          claim_token: string | null
-          claim_token_expires_at: string | null
-          claimed_at: string | null
-          created_at: string
-          currency: string
-          id: string
-          legal_name: string | null
-          locale: string
-          menu_verified_at: string | null
-          name: string
-          onboarded_at: string | null
-          slug: string
-          status: Database["public"]["Enums"]["tenant_status"]
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          subscription_status: Database["public"]["Enums"]["subscription_status"]
-          support_email: string | null
-          support_phone: string | null
-          suspended_at: string | null
-          suspended_reason: string | null
-          timezone: string
-          trial_ends_at: string | null
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tenants"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       active_impersonation: {
         Args: never
         Returns: {

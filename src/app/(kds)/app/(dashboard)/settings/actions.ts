@@ -157,19 +157,3 @@ export async function saveStoreSettings(
   revalidatePath('/settings');
   return ok({ savedAt: new Date().toISOString() });
 }
-
-/** Publish only after the owner has completed the separately-audited menu and
- * branding steps. The database repeats every prerequisite under a row lock. */
-export async function activateStorefront(): Promise<ActionResult<void>> {
-  const staff = await resolveStaffTenantId();
-  if (!staff || staff.role !== 'tenant_owner') {
-    return fail('Only the restaurant owner can activate this storefront', { code: 'forbidden' });
-  }
-
-  const supabase = await createClientForRequest();
-  const { error } = await supabase.rpc('activate_storefront', { p_tenant_id: staff.tenantId });
-  if (error) return fail(messageFor(error.code, error.message), { code: 'unknown' });
-
-  revalidatePath('/settings');
-  return ok(undefined);
-}

@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { createClientForRequest } from '@/lib/supabase/server';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { StoreSettingsForm } from '@/components/dashboard/store-settings-form';
-import { StorefrontActivationCard } from '@/components/dashboard/storefront-activation-card';
 import type { Tenant, TenantSettings } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
@@ -29,13 +28,6 @@ export default async function SettingsPage() {
       </p>
 
       <div className="mt-5">
-        <StorefrontActivationCard
-          status={tenant.status}
-          menuConfirmed={Boolean(tenant.menu_verified_at)}
-          hasLogo={Boolean(settings.logo_url)}
-          hasBanner={Boolean(settings.cover_image_url)}
-          canManage={staff.role === 'tenant_owner'}
-        />
         <StoreSettingsForm
           tenant={tenant as Tenant}
           settings={settings as TenantSettings}
