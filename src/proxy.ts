@@ -217,6 +217,54 @@ export async function proxy(request: NextRequest) {
     return target;
   };
 
+  // ---- Special case: order.vardros.com → vardr-upload-test tenant -----
+  // Explicitly route the test domain to the active test tenant,
+  // bypassing dynamic tenant resolution.
+  const isOrderVardros =
+    hostname === 'order.vardros.com' ||
+    hostname === 'order.localhost' ||
+    hostname === 'order.localhost:3000';
+
+  if (isOrderVardros) {
+    // For staff routes, pass through without rewriting
+    const isStaffOrApi =
+      pathname.startsWith('/login') ||
+      pathname.startsWith('/app') ||
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/api');
+
+    if (isStaffOrApi) {
+      // Set tenant headers for the vardr-upload-test tenant
+      requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
+      requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
+      requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
+      requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+      requestHeaders.set(SURFACE_HEADER, 'storefront');
+
+      return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    }
+
+    // For root path, rewrite to the test tenant's storefront
+    if (pathname === '/' || pathname === '') {
+      requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
+      requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
+      requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
+      requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+      requestHeaders.set(SURFACE_HEADER, 'storefront');
+
+      return applyCookies(rewrite(request, '/store/vardr-upload-test', requestHeaders));
+    }
+
+    // For other storefront paths, rewrite them to /store/vardr-upload-test/path
+    requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
+    requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
+    requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
+    requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+    requestHeaders.set(SURFACE_HEADER, 'storefront');
+
+    return applyCookies(rewrite(request, `/store/vardr-upload-test${pathname}`, requestHeaders));
+  }
+
   // ---- Surface routing -----------------------------------------------
   switch (resolution.surface) {
     case 'marketing': {
