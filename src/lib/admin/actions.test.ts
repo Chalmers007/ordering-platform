@@ -178,4 +178,68 @@ describe('checkTenantUberCustomerId server action', () => {
     expect(result.ok).toBe(true);
     expect(result.hasUberCustomerId).toBe(false);
   });
+
+  it('proves authorized Super Admin can verify tenant config', async () => {
+    // This test documents that an authenticated Super Admin
+    // can call the server action to check tenant configuration.
+    // The action verifies auth and returns only existence checks,
+    // not secrets.
+
+    vi.spyOn(guardModule, 'requireSuperAdmin').mockResolvedValue({
+      ok: true,
+      context: {
+        userId: 'admin-user-id',
+        impersonatedTenantId: null,
+        impersonationSessionId: null,
+      },
+    });
+
+    const mockSupabase = {
+      from: vi.fn((table) => {
+        if (table === 'tenants') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'vardr-upload-test-id' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'tenant_secrets') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValueOnce({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { value: '004c2eff-6414-5048-bc78-e1558a1ea939' },
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+      }),
+    };
+
+    vi.spyOn(supabaseModule, 'createServiceClient').mockReturnValue(
+      mockSupabase as any,
+    );
+
+    const result = await checkTenantUberCustomerId('vardr-upload-test');
+
+    // Verify the auth check passed
+    expect(guardModule.requireSuperAdmin).toHaveBeenCalled();
+
+    // Verify result confirms ID is present
+    expect(result.ok).toBe(true);
+    expect(result.hasUberCustomerId).toBe(true);
+
+    // Verify the actual Customer ID value was NOT returned
+    // (only existence check)
+    expect(result).not.toHaveProperty('value');
+    expect(result).not.toHaveProperty('customerId');
+  });
 });
