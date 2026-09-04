@@ -299,6 +299,16 @@ export async function proxy(request: NextRequest) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
       }
 
+      // On custom domains, allow staff to access /app, /login, and /admin paths
+      // without rewriting them to /store. This enables owner dashboards on
+      // restaurant-owned domains while keeping the storefront accessible at /.
+      const isStaffPath = pathname.startsWith('/app') || pathname.startsWith('/login') || pathname.startsWith('/admin');
+      if (isStaffPath) {
+        // Pass through to the handler without rewriting. Staff auth checks
+        // (role, tenant membership) happen server-side in the layout.
+        return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+      }
+
       // A tenant reached by custom domain never sees its platform subdomain:
       // the rewrite is internal, so the address bar keeps the tenant's own
       // hostname. That is the whole point of white labelling.
