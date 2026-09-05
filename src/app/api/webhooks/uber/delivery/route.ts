@@ -117,16 +117,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply the delivery event
+    const status = mapUberDeliveryStatus(event.status);
     const { error: applyError } = await service.rpc('apply_delivery_event', {
       p_provider: 'uber_direct',
       p_external_ref: event.delivery_id,
-      p_status: mapUberDeliveryStatus(event.status),
-      p_courier_name: event.courier?.name ?? null,
-      p_courier_phone: event.courier?.phone_number ?? null,
-      p_latitude: event.courier?.latitude ?? null,
-      p_longitude: event.courier?.longitude ?? null,
-      p_tracking_url: event.tracking_url ?? null,
-      p_estimated_delivery_at: event.estimated_delivery_at ?? event.dropoff_eta ?? null,
+      p_status: status as any,
+      p_courier_name: event.courier?.name,
+      p_courier_phone: event.courier?.phone_number,
+      p_latitude: event.courier?.latitude,
+      p_longitude: event.courier?.longitude,
+      p_tracking_url: event.tracking_url,
+      p_estimated_delivery_at: event.estimated_delivery_at ?? event.dropoff_eta,
     });
 
     if (applyError) {
