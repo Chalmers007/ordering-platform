@@ -42,7 +42,7 @@ export async function getDispatchMetrics(tenantId: string): Promise<DispatchMetr
 
   const [eventStats, deliveryStats, retryStats] = await Promise.all([
     // Event counts from last 24h
-    service
+    (service as any)
       .from('dispatch_events')
       .select('event_type')
       .eq('tenant_id', tenantId)
@@ -55,7 +55,7 @@ export async function getDispatchMetrics(tenantId: string): Promise<DispatchMetr
       .eq('tenant_id', tenantId),
 
     // Retry queue
-    service
+    (service as any)
       .from('deliveries')
       .select('attempts')
       .eq('tenant_id', tenantId)
@@ -63,13 +63,13 @@ export async function getDispatchMetrics(tenantId: string): Promise<DispatchMetr
       .lte('next_retry_at', new Date().toISOString()),
   ]);
 
-  const events = eventStats.data ?? [];
+  const events = (eventStats.data ?? []) as any[];
   const deliveries = deliveryStats.data ?? [];
-  const retries = retryStats.data ?? [];
+  const retries = (retryStats.data ?? []) as any[];
 
   const eventCounts = {
-    succeeded: events.filter((e) => e.event_type === 'dispatch_succeeded').length,
-    failed: events.filter((e) => e.event_type === 'dispatch_failed').length,
+    succeeded: events.filter((e: any) => e.event_type === 'dispatch_succeeded').length,
+    failed: events.filter((e: any) => e.event_type === 'dispatch_failed').length,
   };
 
   const attempted = eventCounts.succeeded + eventCounts.failed;
@@ -101,7 +101,7 @@ export async function getDispatchMetrics(tenantId: string): Promise<DispatchMetr
     avgDeliveryTimeMs: 0, // TODO: calculate from delivery lifecycle
 
     awaitingRetry: retries.length,
-    retryExhausted: deliveries.filter((d) => d.attempts >= 5).length,
+    retryExhausted: deliveries.filter((d: any) => (d.attempts ?? 0) >= 5).length,
   };
 }
 
@@ -123,7 +123,7 @@ export async function logDispatchEvent(
 ): Promise<void> {
   const service = createServiceClient();
 
-  await service.from('dispatch_events').insert({
+  await (service as any).from('dispatch_events').insert({
     tenant_id: tenantId,
     order_id: orderId,
     delivery_id: deliveryId,

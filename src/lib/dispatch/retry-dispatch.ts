@@ -42,11 +42,11 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
   };
 
   // Find unassigned deliveries that haven't been retried recently
-  const { data: deliveries, error } = await service
+  const { data: deliveries, error } = await (service as any)
     .from('deliveries')
     .select('id, order_id, failure_reason, attempts')
     .eq('status', 'unassigned')
-    .eq('provider', null) // Not yet assigned to a provider
+    .is('provider', null) // Not yet assigned to a provider
     .lte('next_retry_at', new Date().toISOString())
     .limit(25); // Batch size
 
@@ -56,7 +56,7 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
 
   for (const delivery of deliveries) {
     try {
-      const dispatchResult = await autoDispatch(delivery.order_id);
+      const dispatchResult = await autoDispatch((delivery as any).order_id);
 
       if (dispatchResult.dispatched) {
         result.succeeded += 1;
@@ -68,18 +68,18 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
         });
 
         // Schedule next retry
-        const nextAttempt = (delivery.attempts || 0) + 1;
+        const nextAttempt = ((delivery as any).attempts || 0) + 1;
         const backoff = backoffSeconds(nextAttempt);
         const nextRetry = new Date(Date.now() + backoff * 1000);
 
-        await service
+        await (service as any)
           .from('deliveries')
           .update({
             attempts: nextAttempt,
             next_retry_at: nextRetry.toISOString(),
             failure_reason: dispatchResult.reason,
           })
-          .eq('id', delivery.id);
+          .eq('id', (delivery as any).id);
       }
 
       result.retried += 1;

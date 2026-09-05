@@ -12,8 +12,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } },
+  context: { params: Promise<{ orderId: string }> },
 ) {
+  const { orderId } = await context.params;
   const token = request.nextUrl.searchParams.get('token');
   if (!token) {
     return NextResponse.json({ error: 'Token required' }, { status: 400 });
@@ -25,7 +26,7 @@ export async function GET(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('id, status, tenant_id, tracking_token')
-    .eq('id', params.orderId)
+    .eq('id', orderId)
     .eq('tracking_token', token)
     .maybeSingle();
 
@@ -39,7 +40,7 @@ export async function GET(
     .select(
       'status, courier_name, courier_phone, courier_latitude, courier_longitude, estimated_delivery_at, tracking_url, updated_at',
     )
-    .eq('order_id', params.orderId)
+    .eq('order_id', orderId)
     .maybeSingle();
 
   return NextResponse.json({

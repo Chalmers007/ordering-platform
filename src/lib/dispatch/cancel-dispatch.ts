@@ -45,7 +45,7 @@ export async function cancelOrderDispatch(orderId: string): Promise<CancelDispat
     return {
       cancelled: false,
       deliveryId: delivery.id,
-      uberId: delivery.external_ref,
+      uberId: delivery.external_ref || undefined,
       reason: 'Already delivered',
     };
   }
@@ -55,7 +55,7 @@ export async function cancelOrderDispatch(orderId: string): Promise<CancelDispat
     return {
       cancelled: false,
       deliveryId: delivery.id,
-      uberId: delivery.external_ref,
+      uberId: delivery.external_ref || undefined,
       reason: `Already ${delivery.status}`,
     };
   }
@@ -95,13 +95,13 @@ export async function cancelOrderDispatch(orderId: string): Promise<CancelDispat
     await cancelDelivery(secret.value, delivery.external_ref);
 
     // Update delivery status
-    await service
+    await (service as any)
       .from('deliveries')
       .update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
         failure_reason: 'Customer cancelled order',
-      })
+      } as any)
       .eq('id', delivery.id);
 
     // Update order status if appropriate
