@@ -1,86 +1,61 @@
 import { describe, it, expect } from 'vitest';
+import { createHmac } from 'node:crypto';
+import { verifyUberSignature } from '@/lib/uber-signature';
 
 /**
- * Tests for Uber webhook signature verification and status mapping.
- *
- * Full integration tests with Supabase mocking belong in e2e tests.
- * These tests verify the core logic independently.
+ * The previous version of this file re-implemented the route's status map
+ * inline and asserted against its own copy, so it passed while the route
+ * it was named after verified no signatures at all. These tests exercise
+ * the real verifier, and assert the alias points at the canonical route.
  */
 
-describe('Uber delivery webhook utilities', () => {
-  describe('status mapping', () => {
-    // This tests the mapUberDeliveryStatus logic
-    const cases = [
-      { uber: 'accepted', expected: 'assigned' },
-      { uber: 'arriving', expected: 'en_route' },
-      { uber: 'arrived', expected: 'en_route' },
-      { uber: 'picked_up', expected: 'picked_up' },
-      { uber: 'pick_up', expected: 'picked_up' },
-      { uber: 'en_route', expected: 'en_route' },
-      { uber: 'completed', expected: 'delivered' },
-      { uber: 'delivered', expected: 'delivered' },
-      { uber: 'cancelled', expected: 'cancelled' },
-      { uber: 'failed', expected: 'failed' },
-      { uber: 'unable_to_deliver', expected: 'failed' },
-      { uber: 'unknown_status', expected: 'unassigned' },
-    ];
+const SECRET = 'a-test-signing-secret';
+const BODY = JSON.stringify({ delivery_id: 'del_123', status: 'delivered' });
+const sign = (body: string, secret = SECRET) =>
+  createHmac('sha256', secret).update(body, 'utf8').digest('hex');
 
-    for (const { uber, expected } of cases) {
-      it(`maps '${uber}' to '${expected}'`, () => {
-        // This mirrors mapUberDeliveryStatus logic
-        const normalized = uber.toLowerCase().replace(/-/g, '_');
-        const map: Record<string, string> = {
-          accepted: 'assigned',
-          arriving: 'en_route',
-          arrived: 'en_route',
-          picked_up: 'picked_up',
-          pick_up: 'picked_up',
-          en_route: 'en_route',
-          arriving_soon: 'en_route',
-          arrived_at_dropoff: 'en_route',
-          completed: 'delivered',
-          delivered: 'delivered',
-          cancelled: 'cancelled',
-          failed: 'failed',
-          unable_to_deliver: 'failed',
-        };
-
-        const result = map[normalized] || 'unassigned';
-        expect(result).toBe(expected);
-      });
-    }
+describe('uber webhook signature enforcement', () => {
+  it('accepts a correctly signed body', () => {
+    expect(verifyUberSignature(BODY, sign(BODY), SECRET)).toBe(true);
   });
 
-  describe('webhook structure', () => {
-    it('accepts valid delivery event structure', () => {
-      const event = {
-        delivery_id: 'uber-123',
-        status: 'picked_up',
-        tracking_url: 'https://uber.com/track/123',
-        courier: {
-          name: 'Driver',
-          phone_number: '555-1234',
-          latitude: 40.7128,
-          longitude: -74.006,
-        },
-      };
+  it('accepts a digest carrying the sha256= prefix', () => {
+    expect(verifyUberSignature(BODY, `sha256=${sign(BODY)}`, SECRET)).toBe(true);
+  });
 
-      // Verify structure has required fields
-      expect(event).toHaveProperty('delivery_id');
-      expect(event).toHaveProperty('status');
-      expect(event.delivery_id).toBe('uber-123');
-    });
+  it('rejects a body that was altered after signing', () => {
+    const forged = JSON.stringify({ delivery_id: 'del_123', status: 'delivered', total: 0 });
+    expect(verifyUberSignature(forged, sign(BODY), SECRET)).toBe(false);
+  });
 
-    it('handles optional fields in delivery event', () => {
-      const minimalEvent = {
-        delivery_id: 'uber-123',
-        status: 'accepted',
-      };
+  it('rejects a signature made with a different secret', () => {
+    expect(verifyUberSignature(BODY, sign(BODY, 'wrong-secret'), SECRET)).toBe(false);
+  });
 
-      expect(minimalEvent).toHaveProperty('delivery_id');
-      expect(minimalEvent).toHaveProperty('status');
-      // Optional fields may be absent
-      expect(minimalEvent).not.toHaveProperty('courier');
-    });
+  it('rejects a missing signature header rather than passing it through', () => {
+    expect(verifyUberSignature(BODY, null, SECRET)).toBe(false);
+    expect(verifyUberSignature(BODY, '', SECRET)).toBe(false);
+  });
+
+  it('returns false — never throws — on a wrong-length digest', () => {
+    expect(() => verifyUberSignature(BODY, 'deadbeef', SECRET)).not.toThrow();
+    expect(verifyUberSignature(BODY, 'deadbeef', SECRET)).toBe(false);
+  });
+
+  it('rejects when the secret itself is missing, so an unconfigured deploy cannot accept forgeries', () => {
+    expect(verifyUberSignature(BODY, sign(BODY), '')).toBe(false);
+  });
+});
+
+describe('/api/webhooks/uber/delivery alias', () => {
+  it('is the same handler as /api/webhooks/uber, not a second implementation', async () => {
+    const [alias, canonical] = await Promise.all([import('./route'), import('../route')]);
+    expect(alias.POST).toBe(canonical.POST);
+  });
+
+  it('does not read the non-existent UBER_WEBHOOK_SECRET', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const src = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+    expect(src).not.toMatch(/process\.env\.UBER_WEBHOOK_SECRET/);
   });
 });

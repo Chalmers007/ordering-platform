@@ -16,7 +16,9 @@ export function verifyUberSignature(
   if (!signature || !secret) return false;
 
   const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
-  const provided = signature.trim().toLowerCase();
+  // Some Uber endpoints prefix the digest with the algorithm. Stripping it
+  // is not a weakening: the digest still has to match.
+  const provided = signature.trim().toLowerCase().replace(/^sha256=/, '');
 
   // Length check first: timingSafeEqual throws on a mismatch rather than
   // returning false, which would turn a forged header into a 500.

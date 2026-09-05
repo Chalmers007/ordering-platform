@@ -217,51 +217,6 @@ export async function proxy(request: NextRequest) {
     return target;
   };
 
-  // ---- Special case: order.vardros.com → vardr-upload-test tenant -----
-  // Explicitly route the test domain to the active test tenant,
-  // bypassing dynamic tenant resolution.
-  const isOrderVardros =
-    hostname === 'order.vardros.com' ||
-    hostname === 'order.localhost' ||
-    hostname === 'order.localhost:3000';
-
-  if (isOrderVardros) {
-    // Redirect /login to /app/login (login exists at /app/login, not /login)
-    if (pathname === '/login') {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = '/app/login';
-      return applyCookies(NextResponse.redirect(loginUrl));
-    }
-
-    // Set tenant headers for the vardr-upload-test tenant on all requests
-    requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
-    requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
-    requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
-    requestHeaders.set(TENANT_STATUS_HEADER, 'pending_claim');
-    requestHeaders.set(TENANT_PREVIEW_HEADER, '1');
-
-    // For other staff routes (/app, /admin, /api), pass through without rewriting.
-    // Surface routing will handle these correctly via the main switch statement.
-    const isStaffOrApi =
-      pathname.startsWith('/app') ||
-      pathname.startsWith('/admin') ||
-      pathname.startsWith('/api');
-
-    if (isStaffOrApi) {
-      return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
-    }
-
-    // For root path, rewrite directly to /store
-    if (pathname === '/' || pathname === '') {
-      requestHeaders.set(SURFACE_HEADER, 'storefront');
-      return applyCookies(rewrite(request, '/store', requestHeaders));
-    }
-
-    // For other storefront paths, rewrite them to /store{pathname}
-    requestHeaders.set(SURFACE_HEADER, 'storefront');
-    return applyCookies(rewrite(request, `/store${pathname}`, requestHeaders));
-  }
-
   // ---- Surface routing -----------------------------------------------
   switch (resolution.surface) {
     case 'marketing': {
@@ -342,6 +297,15 @@ export async function proxy(request: NextRequest) {
 
       if (isApiRoute || isAuthRoute) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+      }
+
+      // There is no top-level /login page — the two that exist are
+      // /app/login and /admin/login. Passing /login straight through on a
+      // storefront host therefore 404s, so send staff to the owner login.
+      if (pathname === '/login' || pathname.startsWith('/login/')) {
+        const login = request.nextUrl.clone();
+        login.pathname = '/app/login';
+        return applyCookies(NextResponse.redirect(login));
       }
 
       // On custom domains, allow staff to access /app, /login, and /admin paths
