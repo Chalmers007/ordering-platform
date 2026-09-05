@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/admin/guard';
 import { createServiceClient } from '@/lib/supabase/server';
-import { createDeliveryQuote, getUberAccessToken, redactUberSecrets } from '@/lib/uber';
+import {
+  createDeliveryQuote,
+  getUberAccessToken,
+  redactUberSecrets,
+  UberDirectError,
+} from '@/lib/uber';
 import { uberApiBase, uberEnvironment } from '@/lib/uber-env';
 
 /**
@@ -161,10 +166,18 @@ export async function POST(request: NextRequest) {
       steps,
     });
   } catch (error) {
+    // The provider's own code is what distinguishes "this merchant is not
+    // provisioned" from "nobody is driving right now"; the generic message
+    // alone cannot.
+    const code = error instanceof UberDirectError ? error.upstreamCode : null;
+    const status = error instanceof UberDirectError ? error.status : null;
+    const base = error instanceof Error ? error.message : 'quote request failed';
     steps.push({
       step: 'quote',
       ok: false,
-      detail: redactUberSecrets(error instanceof Error ? error.message : 'quote request failed'),
+      detail: redactUberSecrets(
+        `${base}${status ? ` [HTTP ${status}]` : ''}${code ? ` uberCode=${code}` : ''}`,
+      ),
     });
     return NextResponse.json({
       tenantSlug: slug,

@@ -80,6 +80,16 @@ export class UberDirectError extends Error {
     message: string,
     readonly status: number,
     readonly retryable: boolean,
+    /**
+     * The provider's own error code, when it sent one.
+     *
+     * `message` is deliberately generic because it can reach a customer,
+     * but that also hid the cause from whoever is diagnosing a stalled
+     * dispatch — every distinct failure read as "the courier could not
+     * take this delivery". This carries the code for an operator; it is
+     * never rendered to a customer.
+     */
+    readonly upstreamCode: string | null = null,
   ) {
     super(message);
     this.name = 'UberDirectError';
@@ -253,8 +263,10 @@ async function call<T>(path: string, body: unknown): Promise<T> {
     console.error('uber direct call failed', path, response.status, text.slice(0, 500));
 
     let message = 'The courier could not take this delivery';
+    let upstreamCode: string | null = null;
     try {
       const parsed = JSON.parse(text) as { message?: string; code?: string };
+      upstreamCode = parsed.code ?? null;
       if (parsed.code === 'customer_not_found') message = 'This restaurant is not set up with the courier';
       else if (parsed.code === 'address_undeliverable') message = 'That address is outside the delivery area';
       else if (parsed.code === 'no_couriers_available') message = 'No couriers are available right now';
@@ -262,7 +274,12 @@ async function call<T>(path: string, body: unknown): Promise<T> {
       // Non-JSON error; the generic message stands.
     }
 
-    throw new UberDirectError(message, response.status, response.status >= 500 || response.status === 429);
+    throw new UberDirectError(
+      message,
+      response.status,
+      response.status >= 500 || response.status === 429,
+      upstreamCode,
+    );
   }
 
   return JSON.parse(text) as T;
