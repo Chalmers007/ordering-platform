@@ -7,7 +7,7 @@ import {
   redactUberSecrets,
   UberDirectError,
 } from '@/lib/uber';
-import { uberApiBase, uberEnvironment } from '@/lib/uber-env';
+import { uberApiBase, uberAuthUrl, uberEnvironment } from '@/lib/uber-env';
 
 /**
  * Read-only Uber Direct diagnostic.
@@ -56,6 +56,16 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
     tenantSlug?: string;
     dropoffAddress?: string;
+    /**
+     * Try the quote with a one-off token minted for this OAuth scope
+     * instead of the configured one.
+     *
+     * The configured scope issues a token happily and then 401s on the
+     * delivery endpoints, which is indistinguishable from bad credentials
+     * unless you can try another scope. This does that in place, without
+     * changing production configuration for live traffic.
+     */
+    probeScope?: string;
   };
   const slug = body.tenantSlug?.trim();
   if (!slug) {
@@ -146,6 +156,69 @@ export async function POST(request: NextRequest) {
   const dropoff =
     body.dropoffAddress?.trim() ||
     `${settings.city}, ${settings.region} ${settings.postal_code}`;
+
+  // ---- 4a. Optional scope probe ---------------------------------------
+  if (body.probeScope?.trim()) {
+    const scope = body.probeScope.trim();
+    const clientId = process.env.UBER_DIRECT_CLIENT_ID?.trim();
+    const clientSecret = process.env.UBER_DIRECT_CLIENT_SECRET?.trim();
+    if (!clientId || !clientSecret) {
+      steps.push({ step: 'scope_probe', ok: false, detail: 'client credentials are not configured' });
+      return NextResponse.json({ tenantSlug: slug, environment: uberEnvironment(), steps });
+    }
+
+    const tokenResponse = await fetch(uberAuthUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'client_credentials',
+        scope,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const tokenText = await tokenResponse.text();
+    if (!tokenResponse.ok) {
+      steps.push({
+        step: 'scope_probe',
+        ok: false,
+        detail: redactUberSecrets(`scope=${scope} token HTTP ${tokenResponse.status} ${tokenText.slice(0, 200)}`),
+      });
+      return NextResponse.json({ tenantSlug: slug, environment: uberEnvironment(), steps });
+    }
+    const probeToken = (JSON.parse(tokenText) as { access_token?: string }).access_token;
+    steps.push({ step: 'scope_probe_token', ok: Boolean(probeToken), detail: `scope=${scope}` });
+
+    const quoteResponse = await fetch(
+      `${uberApiBase()}/v1/customers/${encodeURIComponent(customerId)}/delivery_quotes`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${probeToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pickup_address: pickup,
+          dropoff_address:
+            body.dropoffAddress?.trim() ||
+            `${settings.city}, ${settings.region} ${settings.postal_code}`,
+          manifest_total_value: 2000,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    const quoteText = await quoteResponse.text();
+    steps.push({
+      step: 'scope_probe_quote',
+      ok: quoteResponse.ok,
+      detail: redactUberSecrets(`scope=${scope} HTTP ${quoteResponse.status} ${quoteText.slice(0, 300)}`),
+    });
+    return NextResponse.json({
+      tenantSlug: slug,
+      environment: uberEnvironment(),
+      apiBase: uberApiBase(),
+      dispatchedDelivery: false,
+      steps,
+    });
+  }
 
   try {
     const quote = await createDeliveryQuote(customerId, {
