@@ -79,6 +79,12 @@ export async function POST(request: NextRequest) {
     probeApiBase?: string;
     /** Token host to pair with probeApiBase. */
     probeAuthUrl?: string;
+    /**
+     * Pickup address for the probe only, for a tenant whose settings have
+     * none yet. It is not written anywhere — this asks the courier a
+     * question, it does not configure the restaurant.
+     */
+    probePickupAddress?: string;
   };
   const slug = body.tenantSlug?.trim();
   if (!slug) {
@@ -146,7 +152,9 @@ export async function POST(request: NextRequest) {
     settings?.postal_code,
   ].filter(Boolean);
 
-  if (!settings?.address_line1 || pickupParts.length < 4) {
+  const probePickup = body.probePickupAddress?.trim();
+
+  if (!probePickup && (!settings?.address_line1 || pickupParts.length < 4)) {
     steps.push({
       step: 'pickup_address',
       ok: false,
@@ -156,11 +164,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ tenantSlug: slug, environment: uberEnvironment(), steps });
   }
 
-  const pickup = pickupParts.join(', ');
+  const pickup = probePickup || pickupParts.join(', ');
   steps.push({
     step: 'pickup_address',
     ok: true,
-    detail: `${pickup}${settings.accepts_delivery ? '' : ' — NOTE: accepts_delivery is false'}`,
+    detail: `${pickup}${probePickup ? ' (probe override, not stored)' : ''}${
+      settings?.accepts_delivery ? '' : ' — NOTE: accepts_delivery is false'
+    }`,
   });
 
   // ---- 4. Quote (never a delivery) -------------------------------------
@@ -168,7 +178,7 @@ export async function POST(request: NextRequest) {
   // region the merchant is actually set up to serve.
   const dropoff =
     body.dropoffAddress?.trim() ||
-    `${settings.city}, ${settings.region} ${settings.postal_code}`;
+    `${settings?.city}, ${settings?.region} ${settings?.postal_code}`;
 
   // ---- 4a. Optional scope probe ---------------------------------------
   if (body.probeScope?.trim()) {
@@ -219,7 +229,7 @@ export async function POST(request: NextRequest) {
           pickup_address: pickup,
           dropoff_address:
             body.dropoffAddress?.trim() ||
-            `${settings.city}, ${settings.region} ${settings.postal_code}`,
+            `${settings?.city}, ${settings?.region} ${settings?.postal_code}`,
           manifest_total_value: 2000,
         }),
         signal: AbortSignal.timeout(15_000),
