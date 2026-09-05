@@ -347,6 +347,18 @@ export async function dispatchDelivery(
 /** @deprecated Prefer the domain-specific `dispatchDelivery` name. */
 export const createDelivery = dispatchDelivery;
 
+/**
+ * Cancel a delivery.
+ * Uber will attempt to cancel and recall the driver.
+ * If driver already picked up, the delivery is marked failed instead.
+ */
+export async function cancelDelivery(customerId: string, deliveryId: string): Promise<void> {
+  await call<void>(
+    `POST /v1/customers/${encodeURIComponent(customerId)}/deliveries/${encodeURIComponent(deliveryId)}/cancel`,
+    {},
+  );
+}
+
 // Status mapping and fee conversion live outside this module's
 // `server-only` boundary so they can be unit-tested.
 export { mapUberStatus, quoteFeeCents, type DeliveryStatusValue } from './uber-status';
