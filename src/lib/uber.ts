@@ -354,11 +354,35 @@ export type UberDelivery = {
   courier?: { name?: string; phone_number?: string; location?: { lat: number; lng: number } };
 };
 
+/**
+ * Whether a dispatch is simulated.
+ *
+ * Uber Direct has no separate sandbox HOST for this account — quotes and
+ * deliveries are the live API — so the safety boundary is this flag, not a
+ * URL. With it on, Uber runs the delivery with a robo-courier: the full
+ * status lifecycle arrives over the webhook, and no human is dispatched
+ * and nothing is billed.
+ *
+ * It defaults to ON, and only the exact string 'false' turns it off. That
+ * is the same reasoning as `uberApiBase()` defaulting to sandbox: a
+ * half-configured deployment must not be able to book a real courier to a
+ * real address. Going live is then one deliberate, greppable change.
+ */
+export function uberTestModeEnabled(): boolean {
+  return process.env.UBER_DIRECT_TEST_MODE?.trim().toLowerCase() !== 'false';
+}
+
 export async function dispatchDelivery(
   customerId: string,
   request: DeliveryRequest,
 ): Promise<UberDelivery> {
-  return call<UberDelivery>(`/v1/customers/${encodeURIComponent(customerId)}/deliveries`, request);
+  const payload: DeliveryRequest & { test_specifications?: unknown } = { ...request };
+
+  if (uberTestModeEnabled()) {
+    payload.test_specifications = { robo_courier_specification: { mode: 'auto' } };
+  }
+
+  return call<UberDelivery>(`/v1/customers/${encodeURIComponent(customerId)}/deliveries`, payload);
 }
 
 /** @deprecated Prefer the domain-specific `dispatchDelivery` name. */
@@ -370,8 +394,11 @@ export const createDelivery = dispatchDelivery;
  * If driver already picked up, the delivery is marked failed instead.
  */
 export async function cancelDelivery(customerId: string, deliveryId: string): Promise<void> {
+  // The path is a path. It previously began "POST ", which `call` appended
+  // to the base verbatim — every cancellation requested
+  // `<base>/POST /v1/customers/...` and could only ever fail.
   await call<void>(
-    `POST /v1/customers/${encodeURIComponent(customerId)}/deliveries/${encodeURIComponent(deliveryId)}/cancel`,
+    `/v1/customers/${encodeURIComponent(customerId)}/deliveries/${encodeURIComponent(deliveryId)}/cancel`,
     {},
   );
 }
