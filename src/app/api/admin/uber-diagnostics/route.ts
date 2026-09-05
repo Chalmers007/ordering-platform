@@ -66,6 +66,19 @@ export async function POST(request: NextRequest) {
      * changing production configuration for live traffic.
      */
     probeScope?: string;
+    /**
+     * Host to send the probe quote to, instead of the configured base.
+     *
+     * Uber runs different hosts for different products, and a token that
+     * mints happily can still be rejected by a host the app was never
+     * provisioned on — which is what "Invalid OAuth 2.0 credentials" on a
+     * freshly issued token means. A quote is a priced estimate: it books
+     * nothing and bills nothing, so trying one against another host is
+     * the cheapest way to tell a host problem from a credential problem.
+     */
+    probeApiBase?: string;
+    /** Token host to pair with probeApiBase. */
+    probeAuthUrl?: string;
   };
   const slug = body.tenantSlug?.trim();
   if (!slug) {
@@ -167,7 +180,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ tenantSlug: slug, environment: uberEnvironment(), steps });
     }
 
-    const tokenResponse = await fetch(uberAuthUrl(), {
+    const authUrl = body.probeAuthUrl?.trim() || uberAuthUrl();
+    const apiBase = (body.probeApiBase?.trim() || uberApiBase()).replace(/\/+$/, '');
+
+    const tokenResponse = await fetch(authUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -188,10 +204,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ tenantSlug: slug, environment: uberEnvironment(), steps });
     }
     const probeToken = (JSON.parse(tokenText) as { access_token?: string }).access_token;
-    steps.push({ step: 'scope_probe_token', ok: Boolean(probeToken), detail: `scope=${scope}` });
+    steps.push({
+      step: 'scope_probe_token',
+      ok: Boolean(probeToken),
+      detail: `scope=${scope} auth=${authUrl}`,
+    });
 
     const quoteResponse = await fetch(
-      `${uberApiBase()}/v1/customers/${encodeURIComponent(customerId)}/delivery_quotes`,
+      `${apiBase}/v1/customers/${encodeURIComponent(customerId)}/delivery_quotes`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${probeToken}`, 'Content-Type': 'application/json' },
@@ -209,7 +229,9 @@ export async function POST(request: NextRequest) {
     steps.push({
       step: 'scope_probe_quote',
       ok: quoteResponse.ok,
-      detail: redactUberSecrets(`scope=${scope} HTTP ${quoteResponse.status} ${quoteText.slice(0, 300)}`),
+      detail: redactUberSecrets(
+        `base=${apiBase} scope=${scope} HTTP ${quoteResponse.status} ${quoteText.slice(0, 300)}`,
+      ),
     });
     return NextResponse.json({
       tenantSlug: slug,
