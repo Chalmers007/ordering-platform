@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { parseAndStage, StagingError } from '@/lib/scraper/parse-and-stage';
-import { ravenProvisionSchema, parseKeyRing, signaturesEqual, REPLAY_WINDOW_SECONDS, type RavenProvisionResponse } from '@/lib/integrations/raven-provision';
+import { ravenProvisionSchema, parseKeyRing, signaturesEqual, REPLAY_WINDOW_SECONDS, validateMenu, buildClaimUrl, type RavenProvisionRequest, type RavenProvisionResponse } from '@/lib/integrations/raven-provision';
 
 export const runtime = 'nodejs';
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -26,23 +26,53 @@ export async function POST(request: NextRequest) {
   const { error: nonceError } = await db.from('raven_provision_nonces').insert({ nonce, source_system: 'raven', key_id: keyId, expires_at: new Date(now.getTime() + REPLAY_WINDOW_SECONDS * 1000).toISOString() } as never);
   if (nonceError) return fail('replayed_nonce', 'nonce has already been used', false, 409);
   const p = parsed.data;
-  if (!p.menu_content) return fail('menu_required', 'menu_content is required for first provisioning', false, 422);
-  const byIdempotency = await db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven').eq('idempotency_key', p.idempotency_key).maybeSingle();
-  const byProspect = byIdempotency.data ? byIdempotency : await db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven').eq('raven_prospect_id', p.raven_prospect_id).maybeSingle();
-  const byPlace = byProspect.data || !p.google_place_id ? byProspect : await db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven').eq('google_place_id', p.google_place_id).maybeSingle();
-  const existing = byPlace.data || (await db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven').eq('normalized_business_name', p.normalized_business_name).eq('normalized_address', p.normalized_address).maybeSingle()).data;
-  if (existing) return json(toResponse(existing));
-  const { data: row, error } = await db.from('raven_provisioning_requests').insert({ ...p, source_system: 'raven', provisioning_status: 'processing', attempt_count: 1 } as never).select('*').single();
+  // The identity lookup runs BEFORE any menu requirement. The contract says a
+  // retry "returns the stored result without resending the menu", and this
+  // used to reject a menu-less body first, so a correctly-formed retry got
+  // 422 instead of the response it had already earned. validateMenu() below
+  // still answers 'menu_required' for a genuine first request.
+  const found = await findExisting(db, p);
+  if (found) return settleIdentity(found, p);
+  const menuError = validateMenu(p); if (menuError) return fail(menuError, menuError === 'menu_hash_mismatch' ? 'menu content hash does not match' : menuError === 'stale_menu' ? 'menu content is stale' : 'menu fields are required for first provisioning', false, 422);
+  // Written as an explicit column list rather than a spread of the request.
+  // The spread carried `version` — protocol metadata with no column — so
+  // every first provisioning failed on "column version does not exist", and
+  // it would silently break again the next time the contract gained a field.
+  // `menu_content` is never persisted; only its provenance is.
+  const record = {
+    source_system: 'raven',
+    raven_prospect_id: p.raven_prospect_id,
+    google_place_id: p.google_place_id ?? null,
+    normalized_business_name: p.normalized_business_name,
+    normalized_address: p.normalized_address,
+    normalized_website: p.normalized_website ?? null,
+    phone: p.phone ?? null,
+    email: p.email ?? null,
+    restaurant_category: p.restaurant_category,
+    menu_source_url: p.menu_source_url,
+    menu_content_type: p.menu_content_type,
+    menu_content_sha256: p.menu_content_sha256,
+    menu_fetched_at: p.menu_fetched_at,
+    idempotency_key: p.idempotency_key,
+    event_type: p.event_type,
+    occurred_at: p.occurred_at,
+    source_payload_hash: p.source_payload_hash,
+    provisioning_status: 'processing',
+    attempt_count: 1,
+  };
+  const { data: row, error } = await db.from('raven_provisioning_requests').insert(record as never).select('*').single();
   if (error || !row) {
-    // A concurrent winner may have committed between the read and insert.
-    const winner = (await db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven').eq('idempotency_key', p.idempotency_key).maybeSingle()).data;
-    if (winner) return json(toResponse(winner));
+    // A concurrent winner committed between the read and the insert. Re-run
+    // the SAME identity test rather than only re-reading the idempotency key:
+    // the race can be lost to a different prospect on the place or
+    // name/address index, and that is a conflict, not a retry.
+    const winner = await findExisting(db, p);
+    if (winner) return settleIdentity(winner, p);
     return fail('duplicate_identity', 'a provisioning request already exists for this restaurant', false, 409);
   }
   try {
-    const staged = await parseAndStage({ content: p.menu_content, sourceUrl: p.normalized_website ?? 'https://menu.invalid', nameHint: p.normalized_business_name });
-    const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-    const claimUrl = root ? `https://admin.${root}/claim?token=${staged.claimToken}` : null;
+    const staged = await parseAndStage({ content: p.menu_content!, sourceUrl: p.menu_source_url!, nameHint: p.normalized_business_name });
+    const claimUrl = buildClaimUrl(staged.slug, staged.claimToken);
     const { data: updated } = await db.from('raven_provisioning_requests').update({ provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl, retryable: false, updated_at: now.toISOString() } as never).eq('id', row.id).select('*').single();
     return json(toResponse(updated ?? { ...row, provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl }));
   } catch (e) {
@@ -51,4 +81,62 @@ export async function POST(request: NextRequest) {
     return json(toResponse(updated ?? row), retryable ? 503 : 422);
   }
 }
+type MatchedRow = { row: Record<string, unknown>; matchedOn: 'idempotency_key' | 'raven_prospect_id' | 'google_place_id' | 'normalized_identity' };
+
+/**
+ * The row this restaurant already has, by any of the four unique keys the
+ * migration enforces, in the order the contract lists them.
+ *
+ * Returns which key matched, because that is the difference between "you
+ * already sent this" and "somebody else is already this restaurant".
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findExisting(db: any, p: RavenProvisionRequest): Promise<MatchedRow | null> {
+  const base = () => db.from('raven_provisioning_requests').select('*').eq('source_system', 'raven');
+
+  const byIdempotency = (await base().eq('idempotency_key', p.idempotency_key).maybeSingle()).data;
+  if (byIdempotency) return { row: byIdempotency, matchedOn: 'idempotency_key' };
+
+  const byProspect = (await base().eq('raven_prospect_id', p.raven_prospect_id).maybeSingle()).data;
+  if (byProspect) return { row: byProspect, matchedOn: 'raven_prospect_id' };
+
+  if (p.google_place_id) {
+    const byPlace = (await base().eq('google_place_id', p.google_place_id).maybeSingle()).data;
+    if (byPlace) return { row: byPlace, matchedOn: 'google_place_id' };
+  }
+
+  const byIdentity = (
+    await base()
+      .eq('normalized_business_name', p.normalized_business_name)
+      .eq('normalized_address', p.normalized_address)
+      .maybeSingle()
+  ).data;
+  if (byIdentity) return { row: byIdentity, matchedOn: 'normalized_identity' };
+
+  return null;
+}
+
+/**
+ * Same prospect, or a different one wearing the same restaurant?
+ *
+ * One test decides it, whichever key matched: a row belonging to the SAME
+ * `raven_prospect_id` is this caller's own earlier request, so it gets the
+ * stored result. A row belonging to a DIFFERENT prospect means two Raven
+ * prospects resolved to one restaurant — a permanent conflict for the source
+ * system to reconcile, never something to retry and never something to
+ * overwrite. The stored row is read and returned as-is; nothing is mutated.
+ */
+function settleIdentity(found: MatchedRow, p: RavenProvisionRequest): NextResponse {
+  if (String(found.row.raven_prospect_id) === p.raven_prospect_id) return json(toResponse(found.row));
+  return json(
+    {
+      error_code: 'duplicate_identity',
+      error_message: `this restaurant is already provisioned under a different Raven prospect (matched on ${found.matchedOn})`,
+      retryable: false,
+      conflicting_field: found.matchedOn,
+    },
+    409,
+  );
+}
+
 function toResponse(row: Record<string, unknown>): RavenProvisionResponse { return { request_id: String(row.id), source_system: 'raven', raven_prospect_id: String(row.raven_prospect_id), idempotency_key: String(row.idempotency_key), ordering_tenant_id: row.tenant_id ? String(row.tenant_id) : null, preview_id: row.preview_id ? String(row.preview_id) : null, claim_url: row.claim_url ? String(row.claim_url) : null, preview_url: row.preview_url ? String(row.preview_url) : null, provisioning_status: row.provisioning_status as RavenProvisionResponse['provisioning_status'], expires_at: row.expires_at ? String(row.expires_at) : null, retryable: Boolean(row.retryable), error_code: row.error_code ? String(row.error_code) : null, error_message: row.last_error ? String(row.last_error) : null }; }
