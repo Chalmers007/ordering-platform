@@ -237,7 +237,8 @@ export async function proxy(request: NextRequest) {
     requestHeaders.set(TENANT_ID_HEADER, 'vardr-upload-test');
     requestHeaders.set(TENANT_SLUG_HEADER, 'vardr-upload-test');
     requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent('Test Restaurant'));
-    requestHeaders.set(TENANT_STATUS_HEADER, 'active');
+    requestHeaders.set(TENANT_STATUS_HEADER, 'pending_claim');
+    requestHeaders.set(TENANT_PREVIEW_HEADER, '1');
 
     // For other staff routes (/app, /admin, /api), pass through without rewriting.
     // Surface routing will handle these correctly via the main switch statement.
