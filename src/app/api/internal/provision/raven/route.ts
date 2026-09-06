@@ -32,7 +32,21 @@ export async function POST(request: NextRequest) {
   // 422 instead of the response it had already earned. validateMenu() below
   // still answers 'menu_required' for a genuine first request.
   const found = await findExisting(db, p);
-  if (found) return settleIdentity(found, p);
+
+  // If we found an existing request, return it UNLESS it failed without creating
+  // a tenant. Failed requests with tenant_id=null are retryable: they may have
+  // failed due to a schema constraint that was later fixed (e.g., sample menu support).
+  // A request that already succeeded (or is processing/exhausted) is immutable.
+  if (found && found.row.provisioning_status !== 'failed') {
+    return settleIdentity(found, p);
+  }
+  if (found && found.row.provisioning_status === 'failed' && found.row.tenant_id) {
+    // Failed but created a tenant: immutable, don't retry
+    return settleIdentity(found, p);
+  }
+  // If we get here: found.row.provisioning_status === 'failed' && !found.row.tenant_id
+  // This request failed without creating a tenant. Allow re-processing with the
+  // same idempotency_key: schema fixes (like sample menu support) may now allow success.
   const menuError = validateMenu(p); if (menuError) return fail(menuError, menuError === 'menu_hash_mismatch' ? 'menu content hash does not match' : menuError === 'stale_menu' ? 'menu content is stale' : 'menu fields are required for first provisioning', false, 422);
   // Written as an explicit column list rather than a spread of the request.
   // The spread carried `version` — protocol metadata with no column — so
