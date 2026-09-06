@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run tests (skip storage-dependent suites)
+        run: npm test -- --exclude 'src/lib/preview-personalisation/lifecycle.test.ts' --exclude 'src/lib/storefront/confirm-menu.test.ts' --exclude 'src/lib/storefront/preview-behaviour.test.ts' --exclude 'src/app/api/admin/provision-from-scraper/route.test.ts'
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
