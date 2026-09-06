@@ -32,6 +32,8 @@ export interface StageInput {
   provider?: MenuParseProvider;
   /** Days the claim link stays redeemable. */
   claimTtlDays?: number;
+  /** Mark menu items as sample rather than scraped. For demo storefronts. */
+  sampleMenu?: boolean;
 }
 
 export interface StageResult {
@@ -135,7 +137,7 @@ export async function parseAndStage(input: StageInput): Promise<StageResult> {
   const row = (Array.isArray(tenant) ? tenant[0] : tenant) as { id: string; slug: string; name: string };
 
   await applyBranding(db, row.id, parsed);
-  const written = await writeMenu(db, row.id, parsed);
+  const written = await writeMenu(db, row.id, parsed, input.sampleMenu ?? false);
 
   const { data: token, error: tokenError } = await db.rpc('issue_claim_token', {
     p_tenant_id: row.id,
@@ -170,7 +172,7 @@ async function applyBranding(db: SupabaseClient<Database>, tenantId: string, par
   await db.from('tenant_settings').update(patch as never).eq('tenant_id', tenantId);
 }
 
-async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed: ParsedRestaurant): Promise<number> {
+async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed: ParsedRestaurant, sampleMenu = false): Promise<number> {
   let items = 0;
   for (const [index, category] of parsed.categories.entries()) {
     const { data: cat, error: catError } = await db
@@ -203,7 +205,7 @@ async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed:
           // The trigger forces is_available false while the menu is
           // unverified. Setting it here too would be a second place to get it
           // wrong, so the database owns that decision.
-          source: 'scraped',
+          source: sampleMenu ? 'sample' : 'scraped',
           source_url: parsed.sourceUrl,
         } as never,
         { onConflict: 'tenant_id,slug' },

@@ -22,6 +22,12 @@ export const ravenProvisionSchema = z.object({
   menu_content_type: z.enum(MENU_CONTENT_TYPES).optional(),
   menu_content_sha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   menu_fetched_at: z.string().datetime({ offset: true }).optional(),
+  /**
+   * Explicit sample-menu flag for demo storefronts.
+   * When true, indicates this is a polished sample menu for demonstration.
+   * The receiver marks all items as source='sample' and keeps the storefront non-orderable.
+   */
+  sample_menu: z.boolean().optional(),
 });
 export type RavenProvisionRequest = z.infer<typeof ravenProvisionSchema>;
 

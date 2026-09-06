@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     return fail('duplicate_identity', 'a provisioning request already exists for this restaurant', false, 409);
   }
   try {
-    const staged = await parseAndStage({ content: p.menu_content!, sourceUrl: p.menu_source_url!, nameHint: p.normalized_business_name });
+    const staged = await parseAndStage({ content: p.menu_content!, sourceUrl: p.menu_source_url!, nameHint: p.normalized_business_name, sampleMenu: p.sample_menu });
     const claimUrl = buildClaimUrl(staged.slug, staged.claimToken);
     const { data: updated } = await db.from('raven_provisioning_requests').update({ provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl, retryable: false, updated_at: now.toISOString() } as never).eq('id', row.id).select('*').single();
     return json(toResponse(updated ?? { ...row, provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl }));
