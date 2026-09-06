@@ -52,21 +52,28 @@ export async function loadStorefront(
 
     supabase.from('tenant_settings').select('*').eq('tenant_id', tenantId).maybeSingle(),
 
-    supabase
-      .from('menu_categories')
-      .select(
-        `*, menu_items (
-            *,
-            menu_item_modifier_groups (
+    (() => {
+      let q = supabase
+        .from('menu_categories')
+        .select(
+          `*, menu_items (
               *,
-              menu_modifier_groups ( *, menu_modifiers ( * ) )
-            )
-          )`,
-      )
-      .eq('tenant_id', tenantId)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('sort_order', { ascending: true, referencedTable: 'menu_items' }),
+              menu_item_modifier_groups (
+                *,
+                menu_modifier_groups ( *, menu_modifiers ( * ) )
+              )
+            )`,
+        )
+        .eq('tenant_id', tenantId);
+      // Preview storefronts show all categories (including inactive) so sample menus
+      // with modifiers display correctly. Regular storefronts filter to active only.
+      if (!options.preview) {
+        q = q.eq('is_active', true);
+      }
+      return q
+        .order('sort_order', { ascending: true })
+        .order('sort_order', { ascending: true, referencedTable: 'menu_items' });
+    })(),
   ]);
 
   if (!tenantResult.data || !settingsResult.data) return null;
