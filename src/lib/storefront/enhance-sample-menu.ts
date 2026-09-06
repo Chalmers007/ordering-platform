@@ -231,7 +231,6 @@ export async function enhanceSampleMenu(options: EnhanceMenuOptions): Promise<{
     .from('menu_items')
     .select('id, slug')
     .eq('tenant_id', tenantId)
-    .eq('source', 'sample')
     .order('slug');
 
   if (items && items.length > 0) {
