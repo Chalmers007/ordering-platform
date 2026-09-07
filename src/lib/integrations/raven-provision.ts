@@ -88,5 +88,8 @@ export function parseKeyRing(env: NodeJS.ProcessEnv = process.env): Map<string, 
   try { const parsed = JSON.parse(env.RAVEN_PROVISION_KEYS ?? '{}') as Record<string, unknown>; for (const [k, v] of Object.entries(parsed)) if (typeof v === 'string' && v.length >= 32) ring.set(k, v); } catch { /* fail closed */ }
   const legacy = env.RAVEN_PROVISION_SECRET?.trim(); const keyId = env.RAVEN_PROVISION_KEY_ID?.trim() || 'current';
   if (legacy && legacy.length >= 32) ring.set(keyId, legacy);
+  // Also support ORDERING_RAVEN_* naming convention (Raven production environment uses this)
+  const orderingLegacy = env.ORDERING_RAVEN_SECRET?.trim(); const orderingKeyId = env.ORDERING_RAVEN_KEY_ID?.trim();
+  if (orderingLegacy && orderingLegacy.length >= 32 && orderingKeyId) ring.set(orderingKeyId, orderingLegacy);
   return ring;
 }
