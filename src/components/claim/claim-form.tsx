@@ -16,10 +16,8 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
  * being sent to lives on a different origin — they would arrive logged out.
  */
 export function ClaimForm({
-  token,
   restaurantName,
 }: {
-  token: string;
   restaurantName: string;
 }) {
   const [fullName, setFullName] = useState('');
@@ -37,7 +35,7 @@ export function ClaimForm({
     const response = await fetch('/api/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, email, password, fullName, phone: phone || undefined }),
+      body: JSON.stringify({ email, password, fullName, phone: phone || undefined }),
     });
 
     const body = (await response.json().catch(() => null)) as

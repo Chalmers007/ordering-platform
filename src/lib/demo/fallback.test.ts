@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateSampleMenu } from './fallback';
+import { generateSampleMenu, sampleMenuContent } from './fallback';
+import { parseStructured } from '@/lib/scraper/provider';
 
 describe('Demo Fallback', () => {
   describe('generateSampleMenu', () => {
@@ -67,6 +68,18 @@ describe('Demo Fallback', () => {
   });
 
   describe('sample menu structure', () => {
+    it('uses the structured parser format for fallback staging', () => {
+      const parsed = parseStructured({
+        content: sampleMenuContent('Test Restaurant'),
+        sourceUrl: 'sample-menu://fallback-demo',
+        nameHint: 'Test Restaurant',
+      });
+      expect(parsed?.name).toBe('Test Restaurant');
+      expect(parsed?.categories).toHaveLength(3);
+      const categories = parsed?.categories as Array<{ items: unknown[] }>;
+      expect(categories.flatMap((category) => category.items)).toHaveLength(30);
+    });
+
     it('follows expected category order', () => {
       const menu = generateSampleMenu();
       const categoryNames = menu.categories.map((c) => c.name);

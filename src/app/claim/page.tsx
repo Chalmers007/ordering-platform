@@ -1,5 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { ClaimForm } from '@/components/claim/claim-form';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +24,10 @@ export default async function ClaimPage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const { token } = await searchParams;
+  if (token) redirect(`/api/claim/session?token=${encodeURIComponent(token)}&next=/claim`);
 
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const claim = token && UUID.test(token) ? await verify(token) : null;
+  const tokenFromCookie = (await cookies()).get(CLAIM_SESSION_COOKIE)?.value;
+  const claim = tokenFromCookie ? await verify(tokenFromCookie) : null;
 
   if (!claim) {
     return (
@@ -59,7 +63,7 @@ export default async function ClaimPage({
         </div>
 
         <div className="mt-6">
-          <ClaimForm token={token!} restaurantName={claim.name} />
+          <ClaimForm restaurantName={claim.name} />
         </div>
 
         {claim.expires_at ? (

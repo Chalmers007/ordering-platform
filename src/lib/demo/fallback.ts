@@ -113,6 +113,32 @@ export function generateSampleMenu(): {
   };
 }
 
+/** Render the fallback menu in the schema.org JSON-LD format the existing
+ * structured parser consumes. */
+export function sampleMenuContent(name: string): string {
+  const menu = generateSampleMenu();
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'Restaurant', name },
+      ...menu.categories.map((category) => ({
+        '@type': 'MenuSection',
+        name: category.name,
+        hasMenuItem: category.items.map((item) => ({
+          '@type': 'MenuItem',
+          name: item.name,
+          description: item.description,
+          offers: {
+            '@type': 'Offer',
+            price: (item.priceCents / 100).toFixed(2),
+            priceCurrency: 'USD',
+          },
+        })),
+      })),
+    ],
+  });
+}
+
 /**
  * Create a demo fallback for a restaurant.
  *
@@ -158,7 +184,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
   // Create new fallback tenant with sample menu
   const stageInput: StageInput = {
-    content: JSON.stringify(generateSampleMenu()),
+    content: sampleMenuContent(input.name),
     sourceUrl: 'sample-menu://fallback-demo',
     nameHint: input.name,
     sampleMenu: true,

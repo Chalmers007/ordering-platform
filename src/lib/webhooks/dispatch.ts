@@ -27,6 +27,17 @@ export async function drainWebhookEvents(tenantId?: string): Promise<DrainResult
   const service = createServiceClient();
   const result: DrainResult = { delivered: 0, failed: 0, skipped: 0 };
 
+  // A worker can exit after claiming a row and before recording the HTTP
+  // result. Requeue stale claims so a process restart cannot strand events.
+  const staleBefore = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  let staleQuery = service
+    .from('webhook_events')
+    .update({ status: 'pending' })
+    .eq('status', 'delivering')
+    .lt('updated_at', staleBefore);
+  if (tenantId) staleQuery = staleQuery.eq('tenant_id', tenantId);
+  await staleQuery;
+
   let query = service
     .from('webhook_events')
     .select('*')
@@ -89,6 +100,17 @@ export async function drainWebhookEvents(tenantId?: string): Promise<DrainResult
     }
 
     const attempts = event.attempts + 1;
+    // Claim before making the HTTP call. A concurrent drain that loses this
+    // update must leave the row for the winning worker and must not send twice.
+    const { data: claimed, error: claimError } = await service
+      .from('webhook_events')
+      .update({ status: 'delivering', attempts })
+      .eq('id', event.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
+    if (claimError || !claimed) continue;
+
     let ok = false;
     let status: number | null = null;
     let lastError: string | null = null;

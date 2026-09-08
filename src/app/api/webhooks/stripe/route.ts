@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { constructWebhookEvent, hashCart, StripeSignatureError } from '@/lib/payments/stripe';
 import { parsePricedCart } from '@/lib/pricing/priced-cart';
 import { triggerDispatch } from '@/lib/dispatch/dispatch';
+import { queuePaymentConfirmedToGHL } from '@/lib/payments/ghl-contact-sync';
+import { drainWebhookEvents } from '@/lib/webhooks/dispatch';
 import type { Json } from '@/types/database';
 
 /**
@@ -32,6 +34,8 @@ type Extracted = {
   paymentIntentId: string | null;
   chargeId: string | null;
   applicationFeeCents: number | null;
+  packagePurchaseId: string | null;
+  packageIntent: boolean;
 };
 
 function extract(event: Stripe.Event): Extracted {
@@ -42,6 +46,9 @@ function extract(event: Stripe.Event): Extracted {
     typeof value === 'string' ? value : value && typeof value === 'object' && 'id' in value
       ? String((value as { id: string }).id)
       : null;
+
+  const packageIntent = metadata.intent === 'package_purchase';
+  const packagePurchaseId = metadata.purchase_id ?? null;
 
   if (event.type === 'payment_intent.succeeded') {
     const intent = object as Stripe.PaymentIntent;
@@ -58,6 +65,8 @@ function extract(event: Stripe.Event): Extracted {
           : metadata.application_fee_cents
             ? Number(metadata.application_fee_cents)
             : null,
+      packagePurchaseId,
+      packageIntent,
     };
   }
 
@@ -70,6 +79,8 @@ function extract(event: Stripe.Event): Extracted {
     applicationFeeCents: metadata.application_fee_cents
       ? Number(metadata.application_fee_cents)
       : null,
+    packagePurchaseId,
+    packageIntent,
   };
 }
 
@@ -109,9 +120,18 @@ export async function POST(request: NextRequest) {
 
   if (ledgerError) {
     if (ledgerError.code === '23505') {
-      return NextResponse.json({ received: true, duplicate: true });
+      const { data: prior } = await service
+        .from('inbound_webhook_events')
+        .select('processed_at')
+        .eq('provider', 'stripe')
+        .eq('event_id', event.id)
+        .maybeSingle();
+      if (prior?.processed_at) return NextResponse.json({ received: true, duplicate: true });
+      // A prior attempt recorded the event but died before finishing. Continue
+      // processing so Stripe retries cannot strand a paid purchase.
+    } else {
+      return NextResponse.json({ error: 'Could not record event' }, { status: 500 });
     }
-    return NextResponse.json({ error: 'Could not record event' }, { status: 500 });
   }
 
   const finish = async (patch: { error?: string; orderId?: string; tenantId?: string }) => {
@@ -132,8 +152,85 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
-  const { checkoutSessionId, cartHash, paymentIntentId, chargeId, applicationFeeCents } =
+  const { checkoutSessionId, cartHash, paymentIntentId, chargeId, applicationFeeCents, packagePurchaseId, packageIntent } =
     extract(event);
+
+  // Package purchase: update status to confirmed and return early
+  if (packageIntent && packagePurchaseId && paymentIntentId) {
+    // Fetch package purchase details before updating
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: purchase, error: purchaseFetchError } = await (service as any)
+      .from('package_purchases')
+      .select('id, tenant_id, package_id, amount_cents, status')
+      .eq('id', packagePurchaseId)
+      .single();
+
+    if (purchaseFetchError || !purchase) {
+      await finish({ error: `Package purchase not found: ${packagePurchaseId}` });
+      return NextResponse.json({ error: 'Package purchase not found' }, { status: 404 });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: packageError } = await (service as any)
+      .from('package_purchases')
+      .update({
+        status: 'confirmed',
+        stripe_payment_intent_id: paymentIntentId,
+        webhook_received_at: new Date().toISOString(),
+      })
+      .eq('id', packagePurchaseId)
+      .eq('status', 'pending');
+
+    if (packageError) {
+      await finish({ error: `Failed to confirm package purchase: ${packageError.message}` });
+      // 500 so Stripe retries if there's a real issue
+      return NextResponse.json({ error: 'Package confirmation failed' }, { status: 500 });
+    }
+
+    // Fetch package name for GHL sync
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pkg } = await (service as any)
+      .from('packages')
+      .select('name')
+      .eq('id', purchase.package_id)
+      .single();
+
+    const packageName = pkg?.name ?? 'Unknown Package';
+
+    // Queue payment confirmation to GHL via durable outbox
+    // GHL handles customer records, workflows, automation, and follow-up
+    // Stripe is the authoritative payment confirmation source
+    // Event is persisted in webhook_events table (will not be lost)
+    // Immediate drain attempt, then periodic retries with exponential backoff
+    const queueResult = await queuePaymentConfirmedToGHL({
+      purchase_id: packagePurchaseId,
+      stripe_payment_intent_id: paymentIntentId,
+      tenant_id: purchase.tenant_id,
+      amount_cents: purchase.amount_cents,
+      package_name: packageName,
+    });
+
+    if (queueResult.queued) {
+      // Attempt immediate delivery (drain one batch)
+      // Scheduled drain will handle retries with exponential backoff
+      await drainWebhookEvents(purchase.tenant_id).catch((err) => {
+        console.error('Webhook drain failed (will retry):', err);
+      });
+    } else {
+      console.error('Failed to queue GHL event:', queueResult.error);
+      // Leave the inbound ledger unprocessed so a Stripe retry can enqueue the
+      // durable outbox row. Payment remains confirmed and is never reversed.
+      await service
+        .from('inbound_webhook_events')
+        .update({ error: queueResult.error ?? 'Could not queue payment confirmation' })
+        .eq('provider', 'stripe')
+        .eq('event_id', event.id);
+      return NextResponse.json({ error: 'Payment confirmed; CRM delivery queued for retry' }, { status: 500 });
+    }
+
+    await finish({ tenantId: purchase.tenant_id });
+    return NextResponse.json({ received: true, packagePurchaseConfirmed: true });
+  }
 
   if (!checkoutSessionId) {
     await finish({ error: 'Event carried no checkout_session_id' });

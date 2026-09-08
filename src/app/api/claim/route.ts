@@ -5,6 +5,8 @@ import { transferPreviewSession } from '@/lib/preview-personalisation/transfer';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getTenantContext } from '@/lib/tenancy/context';
+import { cookies } from 'next/headers';
+import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
 
 /**
  * Completes a storefront claim.
@@ -19,7 +21,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const schema = z.object({
-  token: z.string().uuid(),
   email: z.string().email().max(254),
   // Long enough to matter, and checked here as well as by GoTrue so the
   // message is about the password rather than a generic auth failure.
@@ -46,12 +47,14 @@ export async function POST(request: NextRequest) {
   }
 
   const service = createServiceClient();
+  const token = (await cookies()).get(CLAIM_SESSION_COOKIE)?.value;
+  if (!token) return NextResponse.json({ error: 'This claim link is not valid or has expired' }, { status: 410 });
 
   // Verify before creating anything, so a bad link never leaves an account
   // behind. claim_tenant() checks again under a row lock — this is the
   // cheap early exit, not the guarantee.
   const { data: claimable, error: verifyError } = await service.rpc('verify_claim_token', {
-    p_token: body.token,
+    p_token: token,
   });
 
   if (verifyError) {
@@ -74,6 +77,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'That link belongs to a different restaurant' },
       { status: 403 },
+    );
+  }
+
+  // Verify payment before creating an owner account. This prevents an unpaid
+  // claim from leaving an orphaned auth user behind.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pkgCheckResult = (await (service as any)
+    .from('package_purchases')
+    .select('status')
+    .eq('tenant_id', target.tenant_id)
+    .maybeSingle()) as { data: { status: string } | null; error: { message?: string } | null };
+
+  if (pkgCheckResult.error) {
+    return NextResponse.json(
+      { error: 'Could not verify payment status' },
+      { status: 500 },
+    );
+  }
+
+  if (pkgCheckResult.data && pkgCheckResult.data.status !== 'confirmed') {
+    return NextResponse.json(
+      { error: 'Payment not confirmed. Please complete your purchase before claiming.' },
+      { status: 402 },
     );
   }
 
@@ -112,7 +138,7 @@ export async function POST(request: NextRequest) {
 
   // ---- hand over the restaurant ---------------------------------------
   const { data: claimed, error: claimError } = await service.rpc('claim_tenant', {
-    p_token: body.token,
+    p_token: token,
     p_user_id: userId,
     p_email: body.email,
     p_full_name: body.fullName,

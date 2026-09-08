@@ -50,3 +50,7 @@ next-env.d.ts
 
 # Intermediate from the atomic `npm run db:types`
 src/types/supabase.ts.tmp
+# Local testing scripts with secrets
+apply-local-migrations.js
+run-local-verification.sh
+scripts/apply-local-migrations*.mjs
