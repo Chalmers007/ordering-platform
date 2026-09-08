@@ -1,0 +1,85 @@
+import { describe, it, expect } from 'vitest';
+import { generateSampleMenu } from './fallback';
+
+describe('Demo Fallback', () => {
+  describe('generateSampleMenu', () => {
+    it('generates a sample menu with 3 categories', () => {
+      const menu = generateSampleMenu();
+      expect(menu.categories).toHaveLength(3);
+    });
+
+    it('ensures each category has approximately 10 items', () => {
+      const menu = generateSampleMenu();
+      menu.categories.forEach((category) => {
+        expect(category.items.length).toBeGreaterThanOrEqual(9);
+        expect(category.items.length).toBeLessThanOrEqual(11);
+      });
+    });
+
+    it('generates categories with names', () => {
+      const menu = generateSampleMenu();
+      const categoryNames = menu.categories.map((c) => c.name);
+      expect(categoryNames).toContain('Appetizers');
+      expect(categoryNames).toContain('Entrées');
+      expect(categoryNames).toContain('Desserts');
+    });
+
+    it('generates items with required fields', () => {
+      const menu = generateSampleMenu();
+      menu.categories.forEach((category) => {
+        category.items.forEach((item) => {
+          expect(item.name).toBeTruthy();
+          expect(item.name.length).toBeGreaterThan(0);
+          expect(typeof item.priceCents).toBe('number');
+          expect(item.priceCents).toBeGreaterThan(0);
+        });
+      });
+    });
+
+    it('generates realistic prices', () => {
+      const menu = generateSampleMenu();
+      const allItems = menu.categories.flatMap((c) => c.items);
+      const prices = allItems.map((i) => i.priceCents);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+
+      // Prices should be between $1 and $300
+      expect(minPrice).toBeGreaterThanOrEqual(100);
+      expect(maxPrice).toBeLessThanOrEqual(300000);
+    });
+
+    it('does not repeat item names within categories', () => {
+      const menu = generateSampleMenu();
+      menu.categories.forEach((category) => {
+        const names = category.items.map((i) => i.name);
+        const uniqueNames = new Set(names);
+        expect(uniqueNames.size).toBe(names.length);
+      });
+    });
+
+    it('includes descriptions for most items', () => {
+      const menu = generateSampleMenu();
+      const allItems = menu.categories.flatMap((c) => c.items);
+      const itemsWithDescription = allItems.filter((i) => i.description);
+      // Expect at least 80% of items to have descriptions
+      expect(itemsWithDescription.length).toBeGreaterThan(allItems.length * 0.8);
+    });
+  });
+
+  describe('sample menu structure', () => {
+    it('follows expected category order', () => {
+      const menu = generateSampleMenu();
+      const categoryNames = menu.categories.map((c) => c.name);
+      expect(categoryNames[0]).toBe('Appetizers');
+      expect(categoryNames[1]).toBe('Entrées');
+      expect(categoryNames[2]).toBe('Desserts');
+    });
+
+    it('has proper JSON structure for serialization', () => {
+      const menu = generateSampleMenu();
+      const json = JSON.stringify(menu);
+      const parsed = JSON.parse(json);
+      expect(parsed.categories).toHaveLength(3);
+    });
+  });
+});
