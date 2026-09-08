@@ -172,6 +172,20 @@ async function applyBranding(db: SupabaseClient<Database>, tenantId: string, par
   await db.from('tenant_settings').update(patch as never).eq('tenant_id', tenantId);
 }
 
+function validateMenuItemBeforeDb(item: { name: string; priceCents: number; calories: number | null }): void {
+  // Check constraints from menu_items table schema
+  const nameLen = item.name.trim().length;
+  if (nameLen < 1 || nameLen > 160) {
+    throw new StagingError(`item "${item.name}": name must be 1-160 characters`, 'invalid');
+  }
+  if (item.priceCents < 0 || item.priceCents > 1_000_000) {
+    throw new StagingError(`item "${item.name}": price must be 0–1,000,000 cents`, 'invalid');
+  }
+  if (item.calories !== null && item.calories < 0) {
+    throw new StagingError(`item "${item.name}": calories must be null or non-negative`, 'invalid');
+  }
+}
+
 async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed: ParsedRestaurant, sampleMenu = false): Promise<number> {
   let items = 0;
   for (const [index, category] of parsed.categories.entries()) {
@@ -192,6 +206,7 @@ async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed:
     if (catError || !cat) throw new StagingError(`category "${category.name}": ${catError?.message}`, 'db');
 
     for (const [i, item] of category.items.entries()) {
+      validateMenuItemBeforeDb(item);
       const { error: itemError } = await db.from('menu_items').upsert(
         {
           tenant_id: tenantId,

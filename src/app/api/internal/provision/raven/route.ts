@@ -153,4 +153,27 @@ function settleIdentity(found: MatchedRow, p: RavenProvisionRequest): NextRespon
   );
 }
 
-function toResponse(row: Record<string, unknown>): RavenProvisionResponse { return { request_id: String(row.id), source_system: 'raven', raven_prospect_id: String(row.raven_prospect_id), idempotency_key: String(row.idempotency_key), ordering_tenant_id: row.tenant_id ? String(row.tenant_id) : null, preview_id: row.preview_id ? String(row.preview_id) : null, claim_url: row.claim_url ? String(row.claim_url) : null, preview_url: row.preview_url ? String(row.preview_url) : null, provisioning_status: row.provisioning_status as RavenProvisionResponse['provisioning_status'], expires_at: row.expires_at ? String(row.expires_at) : null, retryable: Boolean(row.retryable), error_code: row.error_code ? String(row.error_code) : null, error_message: row.last_error ? String(row.last_error) : null }; }
+function toResponse(row: Record<string, unknown>): RavenProvisionResponse {
+  return {
+    request_id: String(row.id),
+    source_system: 'raven',
+    raven_prospect_id: String(row.raven_prospect_id),
+    idempotency_key: String(row.idempotency_key),
+    ordering_tenant_id: row.tenant_id ? String(row.tenant_id) : null,
+    preview_id: row.preview_id ? String(row.preview_id) : null,
+    claim_url: row.claim_url ? String(row.claim_url) : null,
+    preview_url: row.preview_url ? String(row.preview_url) : null,
+    provisioning_status: row.provisioning_status as RavenProvisionResponse['provisioning_status'],
+    expires_at: row.expires_at ? String(row.expires_at) : null,
+    retryable: Boolean(row.retryable),
+    error_code: row.error_code ? String(row.error_code) : null,
+    error_message: row.last_error ? String(row.last_error) : null,
+  };
+}
+
+// NOTE FOR RAVEN: Interpret responses by BOTH criteria together:
+// - HTTP 200 + provisioning_status='succeeded' + ordering_tenant_id != null = SUCCESS
+// - HTTP 200 + provisioning_status!='succeeded' OR ordering_tenant_id=null = PROVISIONING FAILED (may be retryable)
+// - HTTP 503 = FAILED, RETRYABLE
+// - HTTP 422 = FAILED, NOT RETRYABLE
+// Do NOT treat HTTP 200 as success if provisioning_status is not 'succeeded'.
