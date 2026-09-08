@@ -2,10 +2,13 @@
  * POST /api/demo/[tenantId]/logo
  *
  * Upload a logo for a demo fallback storefront.
+ * Requires a valid preview session for the tenant (set via cookie when visiting preview URL).
  * Stores logo in tenant branding and updates fallback state.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
+import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { recordLogoUpload } from '@/lib/demo/fallback';
@@ -14,6 +17,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
+const PREVIEW_COOKIE = 'preview_session';
+
 async function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,10 +26,45 @@ async function serviceClient() {
   return createClient<Database>(url, key, { auth: { persistSession: false } });
 }
 
+/** Verify the request has a valid preview session for this tenant. */
+async function authorizePreviewSession(tenantId: string): Promise<{ ok: boolean; status?: number; error?: string }> {
+  // Get the preview session token from httpOnly cookie
+  const token = (await cookies()).get(PREVIEW_COOKIE)?.value;
+  if (!token) {
+    return { ok: false, status: 401, error: 'Preview session not found' };
+  }
+
+  // Compute SHA-256 hash of token (same as how it's stored)
+  const tokenHash = createHash('sha256').update(token, 'utf8').digest('hex');
+
+  const db = await serviceClient();
+
+  // Verify session exists, is for this tenant, and hasn't expired
+  const { data: session, error } = await db
+    .from('preview_sessions')
+    .select('id, expires_at')
+    .eq('token_hash', tokenHash)
+    .eq('tenant_id', tenantId)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error || !session) {
+    return { ok: false, status: 401, error: 'Invalid or expired session' };
+  }
+
+  return { ok: true };
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = await params;
 
   try {
+    // Verify authorization: request must have valid preview session for this tenant
+    const auth = await authorizePreviewSession(tenantId);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -42,10 +82,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const db = await serviceClient();
 
-    // Verify tenant exists and is a fallback
+    // Verify tenant exists and is a fallback demo
     const tenant = await db.from('tenants').select('id').eq('id', tenantId).single();
     if (tenant.error || !tenant.data) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    // Verify demo fallback exists for this tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fallback = await (db as any)
+      .from('demo_fallback_state')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (!fallback.data) {
+      return NextResponse.json({ error: 'Demo fallback not found' }, { status: 404 });
     }
 
     // Upload logo to storage
@@ -72,7 +124,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json(
       {
-        logo_url: publicUrl.publicUrl,
+        success: true,
         uploaded_at: new Date().toISOString(),
       },
       { status: 200 },
