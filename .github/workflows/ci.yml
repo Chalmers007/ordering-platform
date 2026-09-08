@@ -21,7 +21,7 @@ jobs:
       - run: npm ci
 
       - name: Run tests (skip storage-dependent suites)
-        run: npm test -- --exclude 'src/lib/preview-personalisation/lifecycle.test.ts' --exclude 'src/lib/storefront/confirm-menu.test.ts' --exclude 'src/lib/storefront/preview-behaviour.test.ts' --exclude 'src/app/api/admin/provision-from-scraper/route.test.ts'
+        run: npm test -- --exclude 'src/lib/preview-personalisation/lifecycle.test.ts' --exclude 'src/lib/storefront/confirm-menu.test.ts' --exclude 'src/lib/storefront/preview-behaviour.test.ts' --exclude 'src/lib/storefront/enhance-sample-menu.test.ts' --exclude 'src/app/api/admin/provision-from-scraper/route.test.ts'
 
       - name: Typecheck
         run: npm run typecheck

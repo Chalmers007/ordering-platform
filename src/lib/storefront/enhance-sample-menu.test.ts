@@ -1,8 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { existsSync } from 'fs';
 import { enhanceSampleMenu } from './enhance-sample-menu';
 
-process.loadEnvFile('.env.local');
+if (existsSync('.env.local')) {
+  process.loadEnvFile('.env.local');
+}
 
 const TENANT_ID = '0e55bb00-0000-4000-8000-000000000099';
 const CAT_ID = '0e55bb00-0002-4000-8000-000000000099';
