@@ -102,6 +102,7 @@ export async function cancelOrderDispatch(orderId: string): Promise<CancelDispat
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
         failure_reason: 'Customer cancelled order',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
       .eq('id', delivery.id);
 

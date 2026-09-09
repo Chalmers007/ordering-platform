@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
-import { loadStorefront, orderingAvailability } from '@/lib/storefront/data';
+import { loadStorefront } from '@/lib/storefront/data';
 import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
@@ -44,8 +44,6 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
   if (!storefront) {
     notFound();
   }
-
-  const { canOrder } = orderingAvailability(storefront.settings);
 
   // Get this visitor's session if they have one (for uploaded logo/banner)
   const session = await currentPreviewSession(tenantId);

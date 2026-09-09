@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
 
   // Get delivery
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: delivery } = await (supabase as any)
     .from('deliveries')
     .select('id, order_id, attempts, tenant_id')
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
       const backoff = backoffs[Math.min(nextAttempt, backoffs.length - 1)];
       const nextRetry = new Date(Date.now() + backoff * 1000);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any)
         .from('deliveries')
         .update({

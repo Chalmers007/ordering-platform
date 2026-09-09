@@ -51,6 +51,7 @@ export function SearchDeliveries() {
       if (!res.ok) throw new Error('Retry failed');
       setMessage({ type: 'success', text: 'Retry scheduled' });
       await new Promise((r) => setTimeout(r, 1000));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       search({ preventDefault: () => {} } as any);
     } catch (err) {
       setMessage({ type: 'error', text: 'Retry failed' });
@@ -71,6 +72,7 @@ export function SearchDeliveries() {
       if (!res.ok) throw new Error('Cancel failed');
       setMessage({ type: 'success', text: 'Delivery cancelled' });
       await new Promise((r) => setTimeout(r, 1000));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       search({ preventDefault: () => {} } as any);
     } catch (err) {
       setMessage({ type: 'error', text: 'Cancel failed' });
