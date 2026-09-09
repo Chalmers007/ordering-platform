@@ -121,6 +121,42 @@ export function sampleMenuContent(name: string): string {
     '@context': 'https://schema.org',
     '@graph': [
       { '@type': 'Restaurant', name },
+      // Sample modifier groups (size, toppings, etc)
+      {
+        '@type': 'MenuSection',
+        name: 'Item Modifiers',
+        hasMenuItem: [
+          {
+            '@type': 'MenuItem',
+            name: 'Size',
+            description: 'Choose your portion size',
+            additionalProperty: [
+              { '@type': 'PropertyValue', name: 'type', value: 'modifier_group' },
+              { '@type': 'PropertyValue', name: 'selection_type', value: 'single' },
+            ],
+            hasMenuItemOption: [
+              { '@type': 'MenuItemOption', name: 'Small', price: '0.00' },
+              { '@type': 'MenuItemOption', name: 'Medium', price: '1.00' },
+              { '@type': 'MenuItemOption', name: 'Large', price: '2.00' },
+            ],
+          },
+          {
+            '@type': 'MenuItem',
+            name: 'Extra Toppings',
+            description: 'Add extra toppings',
+            additionalProperty: [
+              { '@type': 'PropertyValue', name: 'type', value: 'modifier_group' },
+              { '@type': 'PropertyValue', name: 'selection_type', value: 'multiple' },
+            ],
+            hasMenuItemOption: [
+              { '@type': 'MenuItemOption', name: 'Extra Cheese', price: '0.75' },
+              { '@type': 'MenuItemOption', name: 'Extra Pepperoni', price: '1.00' },
+              { '@type': 'MenuItemOption', name: 'Mushrooms', price: '0.50' },
+              { '@type': 'MenuItemOption', name: 'Olives', price: '0.75' },
+            ],
+          },
+        ],
+      },
       ...menu.categories.map((category) => ({
         '@type': 'MenuSection',
         name: category.name,
