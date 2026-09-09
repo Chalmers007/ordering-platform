@@ -300,9 +300,9 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
     if (sizeGroup) {
       // Add size options
       const sizes = [
-        { name: 'Small', price_adjustment_cents: 0, is_default: false },
-        { name: 'Regular', price_adjustment_cents: 0, is_default: true },
-        { name: 'Large', price_adjustment_cents: 150 },
+        { name: 'Small', price_delta_cents: 0, is_default: false },
+        { name: 'Regular', price_delta_cents: 0, is_default: true },
+        { name: 'Large', price_delta_cents: 150 },
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,7 +311,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
           tenant_id: tenantId,
           group_id: sizeGroup.id,
           name: s.name,
-          price_adjustment_cents: s.price_adjustment_cents,
+          price_delta_cents: s.price_delta_cents,
           is_default: s.is_default,
           is_available: true,
           sort_order: i,
@@ -345,10 +345,10 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
     if (toppingsGroup) {
       const toppings = [
-        { name: 'Extra Cheese', price_adjustment_cents: 75 },
-        { name: 'Extra Protein', price_adjustment_cents: 200 },
-        { name: 'Garlic & Herbs', price_adjustment_cents: 50 },
-        { name: 'Extra Vegetables', price_adjustment_cents: 75 },
+        { name: 'Extra Cheese', price_delta_cents: 75 },
+        { name: 'Extra Protein', price_delta_cents: 200 },
+        { name: 'Garlic & Herbs', price_delta_cents: 50 },
+        { name: 'Extra Vegetables', price_delta_cents: 75 },
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -357,7 +357,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
           tenant_id: tenantId,
           group_id: toppingsGroup.id,
           name: t.name,
-          price_adjustment_cents: t.price_adjustment_cents,
+          price_delta_cents: t.price_delta_cents,
           is_default: false,
           is_available: true,
           sort_order: i,
