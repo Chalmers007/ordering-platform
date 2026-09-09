@@ -298,6 +298,8 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
     }
 
     if (sizeGroup) {
+      console.log('Size group created:', sizeGroup.id);
+
       // Add size options
       const sizes = [
         { name: 'Small', price_delta_cents: 0, is_default: false },
@@ -306,7 +308,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: modifierError } = await (db as any).from('menu_modifiers').insert(
+      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(
         sizes.map((s, i) => ({
           tenant_id: tenantId,
           group_id: sizeGroup.id,
@@ -320,7 +322,11 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       if (modifierError) {
         console.warn('Failed to add size modifiers:', modifierError);
+      } else {
+        console.log('Size modifiers inserted:', modifiersData?.length ?? 'returned data');
       }
+    } else {
+      console.warn('Size group was not created');
     }
 
     // Create Toppings modifier group (optional, checkboxes)
@@ -344,6 +350,8 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
     }
 
     if (toppingsGroup) {
+      console.log('Toppings group created:', toppingsGroup.id);
+
       const toppings = [
         { name: 'Extra Cheese', price_delta_cents: 75 },
         { name: 'Extra Protein', price_delta_cents: 200 },
@@ -352,7 +360,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: modifierError } = await (db as any).from('menu_modifiers').insert(
+      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(
         toppings.map((t, i) => ({
           tenant_id: tenantId,
           group_id: toppingsGroup.id,
@@ -366,11 +374,18 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       if (modifierError) {
         console.warn('Failed to add topping modifiers:', modifierError);
+      } else {
+        console.log('Topping modifiers inserted:', modifiersData?.length ?? 'returned data');
       }
+    } else {
+      console.warn('Toppings group was not created');
     }
 
     // Link modifier groups to specific items
     if (sizeGroup && toppingsGroup) {
+      const linkCount = items.length * 2;
+      console.log(`Linking ${linkCount} modifier groups to ${items.length} items`);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: linkError } = await (db as any).from('menu_item_modifier_groups').insert(
         items.flatMap((item: any) => [
@@ -381,7 +396,11 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       if (linkError) {
         console.warn('Failed to link modifier groups to items:', linkError);
+      } else {
+        console.log('Modifier groups linked successfully');
       }
+    } else {
+      console.warn('Cannot link: sizeGroup=' + !!sizeGroup + ', toppingsGroup=' + !!toppingsGroup);
     }
   } catch (error) {
     // Silently fail if modifiers can't be added - the menu still works without them
