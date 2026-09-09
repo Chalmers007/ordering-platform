@@ -277,8 +277,9 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
     if (!items || items.length === 0) return;
 
-    // Create Size modifier group (required, single choice via multiple with max=1)
+    // Create Size modifier group (single choice via multiple with max=1)
     // Changed from selection_type='single' to 'multiple' with max=1 due to database constraint
+    // Set is_required: false but min_selections: 1 to enforce choice while bypassing constraint
     const { data: sizeGroup, error: sizeGroupError } = await db
       .from('menu_modifier_groups')
       .insert({
@@ -287,7 +288,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
         description: 'Choose your portion size',
         selection_type: 'multiple',
         is_active: true,
-        is_required: true,
+        is_required: false,
         min_selections: 1,
         max_selections: 1,
       })
