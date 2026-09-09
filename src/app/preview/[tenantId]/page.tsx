@@ -6,6 +6,7 @@ import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
 import { claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +15,9 @@ interface PreviewPageProps {
 }
 
 async function getTenant(tenantId: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) return null;
-
-  const client = createClient<Database>(url, key);
-  const { data } = await client
+  // Use service role to read pending_claim tenants (not readable by anon role)
+  const supabase = createServiceClient();
+  const { data } = await supabase
     .from('tenants')
     .select('id, slug, name, status')
     .eq('id', tenantId)
