@@ -277,15 +277,14 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
     if (!items || items.length === 0) return;
 
-    // Create Size modifier group (single choice via multiple with max=1)
-    // Changed from selection_type='single' to 'multiple' with max=1 due to database constraint
-    // Set is_required: false but min_selections: 1 to enforce choice while bypassing constraint
+    // Create Protein Option modifier group (replaces Size - database constraint on 'single' type)
+    // Using 'multiple' selection with max=1 and is_required=false with min=1
     const { data: sizeGroup, error: sizeGroupError } = await db
       .from('menu_modifier_groups')
       .insert({
         tenant_id: tenantId,
-        name: 'Size',
-        description: 'Choose your portion size',
+        name: 'Protein',
+        description: 'Choose your protein type',
         selection_type: 'multiple',
         is_active: true,
         is_required: false,
@@ -296,40 +295,39 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
       .single();
 
     if (sizeGroupError) {
-      console.warn('Failed to create size modifier group:', sizeGroupError);
+      console.warn('Failed to create protein modifier group:', sizeGroupError);
     }
 
     if (sizeGroup) {
-      console.log('Size group created:', sizeGroup.id);
+      console.log('Protein group created:', sizeGroup.id);
 
-      // Add size options
-      // NOTE: All is_default: false - RLS or constraint prevents mixing true/false
-      const sizes = [
-        { name: 'Small', price_delta_cents: 0, is_default: false },
-        { name: 'Regular', price_delta_cents: 0, is_default: false },
-        { name: 'Large', price_delta_cents: 150, is_default: false },
+      // Add protein options
+      const proteins = [
+        { name: 'Chicken', price_delta_cents: 0, is_default: false },
+        { name: 'Beef', price_delta_cents: 150, is_default: false },
+        { name: 'Fish', price_delta_cents: 200, is_default: false },
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(
-        sizes.map((s, i) => ({
+        proteins.map((p, i) => ({
           tenant_id: tenantId,
           group_id: sizeGroup.id,
-          name: s.name,
-          price_delta_cents: s.price_delta_cents,
-          is_default: s.is_default,
+          name: p.name,
+          price_delta_cents: p.price_delta_cents,
+          is_default: p.is_default,
           is_available: true,
           sort_order: i,
         })),
       );
 
       if (modifierError) {
-        console.warn('Failed to add size modifiers:', modifierError);
+        console.warn('Failed to add protein modifiers:', modifierError);
       } else {
-        console.log('Size modifiers inserted:', modifiersData?.length ?? 'OK');
+        console.log('Protein modifiers inserted:', modifiersData?.length ?? 'OK');
       }
     } else {
-      console.warn('Size group was not created');
+      console.warn('Protein group was not created');
     }
 
     // Create Toppings modifier group (optional, checkboxes)
