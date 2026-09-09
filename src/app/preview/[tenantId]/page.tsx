@@ -7,6 +7,7 @@ import { PreviewBanner } from '@/components/storefront/preview-banner';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
 import { claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
 import { createServiceClient } from '@/lib/supabase/server';
+import { CartProvider } from '@/lib/cart/cart-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,19 +50,17 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
   const banner = uploads.find((a) => a.kind === 'banner') ?? null;
 
   return (
-    <>
-      {
-        <PreviewBanner
-          ctaHref={claimCtaHref()}
-          walkthroughHref={walkthroughCtaHref()}
-          personalise={{
-            hasLogo: Boolean(logo),
-            hasBanner: Boolean(banner),
-            logoAssetId: logo?.id ?? null,
-            bannerAssetId: banner?.id ?? null,
-          }}
-        />
-      }
+    <CartProvider tenantId={tenantId} defaultFulfillment={storefront.settings.accepts_delivery ? 'delivery' : 'pickup'}>
+      <PreviewBanner
+        ctaHref={claimCtaHref()}
+        walkthroughHref={walkthroughCtaHref()}
+        personalise={{
+          hasLogo: Boolean(logo),
+          hasBanner: Boolean(banner),
+          logoAssetId: logo?.id ?? null,
+          bannerAssetId: banner?.id ?? null,
+        }}
+      />
       <MenuBrowser
         categories={storefront.categories}
         currency={storefront.tenant.currency}
@@ -71,6 +70,6 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
         acceptsPickup={storefront.settings.accepts_pickup}
         deliveryMinimumCents={storefront.settings.delivery_minimum_cents}
       />
-    </>
+    </CartProvider>
   );
 }
