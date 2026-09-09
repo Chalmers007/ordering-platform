@@ -128,16 +128,16 @@ export function sampleMenuContent(name: string): string {
         hasMenuItem: [
           {
             '@type': 'MenuItem',
-            name: 'Size',
-            description: 'Choose your portion size',
+            name: 'Protein',
+            description: 'Choose your protein type',
             additionalProperty: [
               { '@type': 'PropertyValue', name: 'type', value: 'modifier_group' },
-              { '@type': 'PropertyValue', name: 'selection_type', value: 'single' },
+              { '@type': 'PropertyValue', name: 'selection_type', value: 'multiple' },
             ],
             hasMenuItemOption: [
-              { '@type': 'MenuItemOption', name: 'Small', price: '0.00' },
-              { '@type': 'MenuItemOption', name: 'Medium', price: '1.00' },
-              { '@type': 'MenuItemOption', name: 'Large', price: '2.00' },
+              { '@type': 'MenuItemOption', name: 'Chicken', price: '0.00' },
+              { '@type': 'MenuItemOption', name: 'Beef', price: '1.50' },
+              { '@type': 'MenuItemOption', name: 'Fish', price: '2.00' },
             ],
           },
           {
@@ -263,7 +263,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
 /**
  * Add representative modifiers to sample menu items.
- * Creates Size, Toppings, and Spice Level modifier groups.
+ * Creates Protein and Add-ons modifier groups.
  */
 async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: string): Promise<void> {
   try {
