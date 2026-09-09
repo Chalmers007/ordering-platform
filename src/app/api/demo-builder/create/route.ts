@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
           {
             tenant_id: existingTenantId,
             slug: tenant.data.slug,
-            preview_url: buildPreviewUrl(tenant.data.slug),
+            preview_url: buildPreviewUrl(existingTenantId),
             state: 'reused',
             expires_at: session.expiresAt,
           },
@@ -139,8 +139,9 @@ async function queueWebsiteScrape(tenantId: string, website: string): Promise<vo
   console.log(`Queued website scrape for tenant ${tenantId}: ${website}`);
 }
 
-function buildPreviewUrl(slug: string): string {
+function buildPreviewUrl(tenantId: string): string {
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'order.example';
   const protocol = root.startsWith('localhost') ? 'http' : 'https';
-  return `${protocol}://${slug}.${root}`;
+  // Use path-based preview: /preview/<tenant-id> instead of subdomain
+  return `${protocol}://${root}/preview/${tenantId}`;
 }

@@ -352,8 +352,9 @@ export async function getFallbackStatus(tenant_id: string): Promise<FallbackReco
   return (result.data as FallbackRecord) || null;
 }
 
-function buildPreviewUrl(slug: string): string {
+function buildPreviewUrl(tenantId: string): string {
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'order.example';
   const protocol = root.startsWith('localhost') ? 'http' : 'https';
-  return `${protocol}://${slug}.${root}`;
+  // Use path-based preview: /preview/<tenant-id> instead of subdomain
+  return `${protocol}://${root}/preview/${tenantId}`;
 }
