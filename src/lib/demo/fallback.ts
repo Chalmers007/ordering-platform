@@ -303,13 +303,14 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).from('menu_modifiers').insert(
-        sizes.map((s) => ({
+        sizes.map((s, i) => ({
           tenant_id: tenantId,
           group_id: sizeGroup.id,
           name: s.name,
           price_adjustment_cents: s.price_adjustment_cents,
           is_default: s.is_default,
           is_available: true,
+          sort_order: i,
         })),
       );
     }
@@ -340,13 +341,14 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).from('menu_modifiers').insert(
-        toppings.map((t) => ({
+        toppings.map((t, i) => ({
           tenant_id: tenantId,
           group_id: toppingsGroup.id,
           name: t.name,
           price_adjustment_cents: t.price_adjustment_cents,
           is_default: false,
           is_available: true,
+          sort_order: i,
         })),
       );
     }
