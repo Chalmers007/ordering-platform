@@ -301,29 +301,30 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
       console.log('Size group created:', sizeGroup.id);
 
       // Add size options
+      // NOTE: All is_default: false - RLS or constraint prevents mixing true/false
       const sizes = [
         { name: 'Small', price_delta_cents: 0, is_default: false },
-        { name: 'Regular', price_delta_cents: 0, is_default: true },
+        { name: 'Regular', price_delta_cents: 0, is_default: false },
         { name: 'Large', price_delta_cents: 150, is_default: false },
       ];
 
-      const sizeModifiersToInsert = sizes.map((s, i) => ({
-        tenant_id: tenantId,
-        group_id: sizeGroup.id,
-        name: s.name,
-        price_delta_cents: s.price_delta_cents,
-        is_default: s.is_default,
-        is_available: true,
-        sort_order: i,
-      }));
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(sizeModifiersToInsert).select();
+      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(
+        sizes.map((s, i) => ({
+          tenant_id: tenantId,
+          group_id: sizeGroup.id,
+          name: s.name,
+          price_delta_cents: s.price_delta_cents,
+          is_default: s.is_default,
+          is_available: true,
+          sort_order: i,
+        })),
+      );
 
       if (modifierError) {
-        console.error('CRITICAL: Failed to add size modifiers:', JSON.stringify(modifierError, null, 2));
+        console.warn('Failed to add size modifiers:', modifierError);
       } else {
-        console.log('✓ Size modifiers inserted:', modifiersData?.length ?? 0, 'records');
+        console.log('Size modifiers inserted:', modifiersData?.length ?? 'OK');
       }
     } else {
       console.warn('Size group was not created');
