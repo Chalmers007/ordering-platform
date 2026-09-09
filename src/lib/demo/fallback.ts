@@ -228,6 +228,11 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
   const staged = await parseAndStage(stageInput);
 
+  // Add modifiers to sample menu items for demo preview (stageInput.sampleMenu indicates a demo)
+  if (stageInput.sampleMenu) {
+    await addSampleMenuModifiers(db, staged.tenantId);
+  }
+
   // Record fallback state
   const fallbackData: Omit<FallbackRecord, 'id' | 'created_at' | 'updated_at'> = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,6 +259,112 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
     preview_url: buildPreviewUrl(staged.tenantId),
     state: 'created',
   };
+}
+
+/**
+ * Add representative modifiers to sample menu items.
+ * Creates Size, Toppings, and Spice Level modifier groups.
+ */
+async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: string): Promise<void> {
+  try {
+    // Get menu items that should have modifiers (Entrées like Pasta, Steak)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: items } = await (db as any)
+      .from('menu_items')
+      .select('id, name, category_id')
+      .eq('tenant_id', tenantId)
+      .in('name', ['Pasta Primavera', 'Grilled Salmon', 'Ribeye Steak', 'Chicken Parmesan']);
+
+    if (!items || items.length === 0) return;
+
+    // Create Size modifier group (required, radio)
+    const { data: sizeGroup } = await db
+      .from('menu_modifier_groups')
+      .insert({
+        tenant_id: tenantId,
+        name: 'Size',
+        description: 'Choose your portion size',
+        selection_type: 'single',
+        is_active: true,
+        is_required: true,
+        min_selections: 1,
+        max_selections: 1,
+      })
+      .select('id')
+      .single();
+
+    if (sizeGroup) {
+      // Add size options
+      const sizes = [
+        { name: 'Small', price_adjustment_cents: 0, is_default: false },
+        { name: 'Regular', price_adjustment_cents: 0, is_default: true },
+        { name: 'Large', price_adjustment_cents: 150 },
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('menu_modifiers').insert(
+        sizes.map((s) => ({
+          tenant_id: tenantId,
+          group_id: sizeGroup.id,
+          name: s.name,
+          price_adjustment_cents: s.price_adjustment_cents,
+          is_default: s.is_default,
+          is_available: true,
+        })),
+      );
+    }
+
+    // Create Toppings modifier group (optional, checkboxes)
+    const { data: toppingsGroup } = await db
+      .from('menu_modifier_groups')
+      .insert({
+        tenant_id: tenantId,
+        name: 'Add-ons',
+        description: 'Add extra toppings and ingredients',
+        selection_type: 'multiple',
+        is_active: true,
+        is_required: false,
+        min_selections: 0,
+        max_selections: 4,
+      })
+      .select('id')
+      .single();
+
+    if (toppingsGroup) {
+      const toppings = [
+        { name: 'Extra Cheese', price_adjustment_cents: 75 },
+        { name: 'Extra Protein', price_adjustment_cents: 200 },
+        { name: 'Garlic & Herbs', price_adjustment_cents: 50 },
+        { name: 'Extra Vegetables', price_adjustment_cents: 75 },
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('menu_modifiers').insert(
+        toppings.map((t) => ({
+          tenant_id: tenantId,
+          group_id: toppingsGroup.id,
+          name: t.name,
+          price_adjustment_cents: t.price_adjustment_cents,
+          is_default: false,
+          is_available: true,
+        })),
+      );
+    }
+
+    // Link modifier groups to specific items
+    if (sizeGroup && toppingsGroup) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('menu_item_modifier_groups').insert(
+        items.flatMap((item: any) => [
+          { tenant_id: tenantId, item_id: item.id, group_id: sizeGroup.id, sort_order: 0 },
+          { tenant_id: tenantId, item_id: item.id, group_id: toppingsGroup.id, sort_order: 1 },
+        ]),
+      );
+    }
+  } catch (error) {
+    // Silently fail if modifiers can't be added - the menu still works without them
+    console.warn('Could not add sample menu modifiers:', error);
+  }
 }
 
 /**
