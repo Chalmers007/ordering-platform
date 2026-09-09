@@ -52,6 +52,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
   return (
     <CartProvider tenantId={tenantId} defaultFulfillment={storefront.settings.accepts_delivery ? 'delivery' : 'pickup'}>
       <PreviewBanner
+        restaurantName={tenant.name}
         ctaHref={claimCtaHref()}
         walkthroughHref={walkthroughCtaHref()}
         personalise={{

@@ -21,10 +21,12 @@ import { PersonalisePanel } from './personalise-panel';
  * the one nobody could read.
  */
 export function PreviewBanner({
+  restaurantName,
   ctaHref,
   walkthroughHref,
   personalise,
 }: {
+  restaurantName: string;
   ctaHref: string;
   walkthroughHref: string;
   /** Absent when the visitor has uploaded nothing yet. */
@@ -35,6 +37,7 @@ export function PreviewBanner({
       <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-900">Preview — not yet live</p>
+          <h1 className="mt-2 text-2xl font-bold text-neutral-900">{restaurantName}</h1>
           <p className="mt-1 text-sm text-neutral-800">
             This storefront was prepared for your restaurant. Explore the menu and see how online
             ordering could look.

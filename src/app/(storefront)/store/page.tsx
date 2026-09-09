@@ -33,6 +33,7 @@ export default async function StorefrontPage() {
     <>
       {preview && (
         <PreviewBanner
+          restaurantName={storefront.tenant.name}
           ctaHref={claimCtaHref()}
           walkthroughHref={walkthroughCtaHref()}
           personalise={{
