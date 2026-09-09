@@ -304,7 +304,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
       const sizes = [
         { name: 'Small', price_delta_cents: 0, is_default: false },
         { name: 'Regular', price_delta_cents: 0, is_default: true },
-        { name: 'Large', price_delta_cents: 150 },
+        { name: 'Large', price_delta_cents: 150, is_default: false },
       ];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
