@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClientForRequest, createServiceClient } from '@/lib/supabase/server';
 import { requireSuperAdmin } from '@/lib/admin/guard';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 
 /**
  * Internal-only endpoint to create a synthetic test tenant for preview-upload
@@ -58,7 +60,7 @@ const SAMPLE_MENU: MenuCategory[] = [
   },
 ];
 
-async function seedMenu(supabase: any, tenantId: string): Promise<void> {
+async function seedMenu(supabase: SupabaseClient<Database>, tenantId: string): Promise<void> {
   for (const [categoryIndex, category] of SAMPLE_MENU.entries()) {
     const { data: cat, error: catError } = await supabase
       .from('menu_categories')
@@ -104,7 +106,7 @@ async function seedMenu(supabase: any, tenantId: string): Promise<void> {
   }
 }
 
-async function seedModifiers(supabase: any, tenantId: string): Promise<void> {
+async function seedModifiers(supabase: SupabaseClient<Database>, tenantId: string): Promise<void> {
   // Seed modifier groups for pizza sizes, toppings, etc.
   const groups = [
     {
@@ -192,7 +194,7 @@ async function seedModifiers(supabase: any, tenantId: string): Promise<void> {
   }
 }
 
-async function linkPizzaModifiers(supabase: any, tenantId: string): Promise<void> {
+async function linkPizzaModifiers(supabase: SupabaseClient<Database>, tenantId: string): Promise<void> {
   // Link Pizza Size and Toppings groups to pizza items (Margherita, Pepperoni)
   const { data: pizzaItems } = await supabase
     .from('menu_items')
@@ -210,7 +212,7 @@ async function linkPizzaModifiers(supabase: any, tenantId: string): Promise<void
 
   if (!groups?.length) return;
 
-  const groupMap = new Map(groups.map((g: any) => [g.name, g.id]));
+  const groupMap = new Map(groups.map((g: { name: string; id: string }) => [g.name, g.id]));
 
   for (const item of pizzaItems) {
     for (const [groupName, sort_order] of [

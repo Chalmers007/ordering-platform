@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/admin/guard';
 import { createServiceClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
 
   // Search by order ID, phone, or email
-  const { data: orders } = await (supabase as any)
+  const { data: orders } = await (supabase as ReturnType<typeof createServiceClient>)
     .from('deliveries')
     .select(
       `
@@ -42,7 +43,17 @@ export async function GET(request: NextRequest) {
     .limit(20);
 
   return NextResponse.json({
-    orders: (orders || []).map((d: any) => ({
+    orders: (orders || []).map((d: {
+      order_id: string;
+      orders?: Array<{ customer_id: string }>;
+      id: string;
+      status: string;
+      attempts: number | null;
+      failure_reason: string | null;
+      courier_name: string | null;
+      created_at: string;
+      updated_at: string;
+    }) => ({
       orderId: d.order_id,
       customerId: d.orders?.[0]?.customer_id,
       deliveryId: d.id,
