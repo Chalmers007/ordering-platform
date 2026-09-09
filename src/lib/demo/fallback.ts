@@ -316,16 +316,14 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
         is_available: true,
         sort_order: i,
       }));
-      console.log('[SIZE-MODIFIER] About to insert Size modifiers:', JSON.stringify(sizeModifiersToInsert, null, 2));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(sizeModifiersToInsert);
+      const { data: modifiersData, error: modifierError } = await (db as any).from('menu_modifiers').insert(sizeModifiersToInsert).select();
 
-      console.log('[SIZE-MODIFIER] Insert result:', { hasError: !!modifierError, error: modifierError, dataLength: modifiersData?.length });
       if (modifierError) {
-        console.warn('Failed to add size modifiers:', modifierError);
+        console.error('CRITICAL: Failed to add size modifiers:', JSON.stringify(modifierError, null, 2));
       } else {
-        console.log('Size modifiers inserted successfully:', modifiersData?.length ?? 0, 'records');
+        console.log('✓ Size modifiers inserted:', modifiersData?.length ?? 0, 'records');
       }
     } else {
       console.warn('Size group was not created');
