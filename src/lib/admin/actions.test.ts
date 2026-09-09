@@ -57,6 +57,7 @@ describe('checkTenantUberCustomerId server action', () => {
 
     vi.spyOn(supabaseModule, 'createServiceClient').mockReturnValue(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockSupabase as any,
     );
 
@@ -115,6 +116,7 @@ describe('checkTenantUberCustomerId server action', () => {
 
     vi.spyOn(supabaseModule, 'createServiceClient').mockReturnValue(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockSupabase as any,
     );
 
@@ -172,6 +174,7 @@ describe('checkTenantUberCustomerId server action', () => {
     };
 
     vi.spyOn(supabaseModule, 'createServiceClient').mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockSupabase as any,
     );
 
@@ -227,6 +230,7 @@ describe('checkTenantUberCustomerId server action', () => {
     };
 
     vi.spyOn(supabaseModule, 'createServiceClient').mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockSupabase as any,
     );
 
