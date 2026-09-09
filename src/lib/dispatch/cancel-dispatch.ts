@@ -95,6 +95,7 @@ export async function cancelOrderDispatch(orderId: string): Promise<CancelDispat
     await cancelDelivery(secret.value, delivery.external_ref);
 
     // Update delivery status
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (service as any)
       .from('deliveries')
       .update({

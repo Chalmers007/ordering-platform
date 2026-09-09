@@ -62,6 +62,7 @@ describe('autoDispatch', () => {
       })),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (createServiceClient as any).mockReturnValue(mockService);
 
     const result = await autoDispatch('order-1');
