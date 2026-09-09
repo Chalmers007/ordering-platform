@@ -277,14 +277,14 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
     if (!items || items.length === 0) return;
 
-    // Create Size modifier group (required, radio) - TEST: using multiple instead of single
+    // Create Size modifier group (required, radio)
     const { data: sizeGroup, error: sizeGroupError } = await db
       .from('menu_modifier_groups')
       .insert({
         tenant_id: tenantId,
         name: 'Size',
         description: 'Choose your portion size',
-        selection_type: 'multiple', // TODO: Change back to 'single' after testing
+        selection_type: 'single',
         is_active: true,
         is_required: true,
         min_selections: 1,
