@@ -67,11 +67,20 @@ export function ModifierModal({
   }
 
   const groups = useMemo(
-    () =>
-      (item?.menu_item_modifier_groups ?? [])
+    () => {
+      const result = (item?.menu_item_modifier_groups ?? [])
         .map((link) => link.menu_modifier_groups)
         .filter((g) => g.is_active)
-        .sort((a, b) => a.sort_order - b.sort_order),
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      if (result.length > 0 && typeof window !== 'undefined') {
+        result.forEach(g => {
+          console.log(`Group: ${g.name}, Modifiers: ${g.menu_modifiers?.length ?? 0}`, g.menu_modifiers);
+        });
+      }
+
+      return result;
+    },
     [item],
   );
 
