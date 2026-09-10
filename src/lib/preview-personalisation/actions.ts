@@ -42,68 +42,76 @@ async function previewTenantId(): Promise<string | null> {
 
 export async function uploadPreviewImage(form: FormData): Promise<UploadResult> {
   try {
-    console.log('[uploadPreviewImage] starting upload');
-    const tenantId = await previewTenantId();
-    console.log('[uploadPreviewImage] tenantId:', tenantId);
-    if (!tenantId) return fail('This storefront is not open for personalisation.');
+    try {
+      const tenantId = await previewTenantId();
+      if (!tenantId) return fail('This storefront is not open for personalisation.');
 
-    const kindRaw = String(form.get('kind') ?? '');
-    if (!['logo', 'banner', 'item'].includes(kindRaw)) return fail('Unknown image type.');
-    const kind = kindRaw as 'logo' | 'banner' | 'item';
+      const kindRaw = String(form.get('kind') ?? '');
+      if (!['logo', 'banner', 'item'].includes(kindRaw)) return fail('Unknown image type.');
+      const kind = kindRaw as 'logo' | 'banner' | 'item';
 
-    const file = form.get('file');
-    if (!(file instanceof File)) return fail('No file was uploaded.');
-    // Read once, and cap before the bytes are examined so an enormous body is
-    // rejected on size rather than parsed.
-    if (file.size > MAX_UPLOAD_BYTES) return fail('Images must be 5MB or smaller.');
+      const file = form.get('file');
+      if (!(file instanceof File)) return fail('No file was uploaded.');
+      if (file.size > MAX_UPLOAD_BYTES) return fail('Images must be 5MB or smaller.');
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const verdict = validateUpload(file.type || null, bytes);
-    if (!verdict.ok) return fail(verdict.message);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const verdict = validateUpload(file.type || null, bytes);
+      if (!verdict.ok) return fail(verdict.message);
 
-    console.log('[uploadPreviewImage] calling ensurePreviewSession');
-    const session = await ensurePreviewSession(tenantId);
-    console.log('[uploadPreviewImage] session created:', session.id);
-    const db = createServiceClient();
+      const session = await ensurePreviewSession(tenantId);
+      const db = createServiceClient();
 
-    const existing = await sessionAssets(session.id);
-    if (kind === 'item' && existing.filter((a) => a.kind === 'item').length >= MAX_ASSETS_PER_SESSION) {
-      return fail(`You can add up to ${MAX_ASSETS_PER_SESSION} photos.`);
-    }
+      const existing = await sessionAssets(session.id);
+      if (kind === 'item' && existing.filter((a) => a.kind === 'item').length >= MAX_ASSETS_PER_SESSION) {
+        return fail(`You can add up to ${MAX_ASSETS_PER_SESSION} photos.`);
+      }
 
-    // The path is derived from the session, never from the uploaded filename —
-    // a caller-chosen name is a path-traversal waiting to happen.
-    const path = `${session.id}/${kind}-${Date.now()}.${verdict.extension}`;
-    const up = await db.storage.from(PREVIEW_BUCKET).upload(path, bytes, {
-      contentType: verdict.mime,
-      upsert: false,
-    });
-    if (up.error) return fail('Upload failed. Please try again.');
+      const path = `${session.id}/${kind}-${Date.now()}.${verdict.extension}`;
+      const up = await db.storage.from(PREVIEW_BUCKET).upload(path, bytes, {
+        contentType: verdict.mime,
+        upsert: false,
+      });
+      if (up.error) return fail('Upload failed. Please try again.');
 
-    // Replacing a logo or banner removes the previous file rather than leaving
-    // it in the bucket unreferenced.
-    const previous = existing.find((a) => a.kind === kind && kind !== 'item');
-    if (previous) {
-      await db.storage.from(PREVIEW_BUCKET).remove([previous.storagePath]);
-      await db.from('preview_session_assets').delete().eq('id', previous.id);
-    }
+      const previous = existing.find((a) => a.kind === kind && kind !== 'item');
+      if (previous) {
+        try {
+          await db.storage.from(PREVIEW_BUCKET).remove([previous.storagePath]);
+          await db.from('preview_session_assets').delete().eq('id', previous.id);
+        } catch {
+          // Cleanup errors don't block the upload
+        }
+      }
 
-    const { data, error } = await db
-      .from('preview_session_assets')
-      .insert({ session_id: session.id, kind, storage_path: path, mime_type: verdict.mime, bytes: verdict.bytes } as never)
-      .select('id')
-      .single();
-    if (error || !data) {
-      await db.storage.from(PREVIEW_BUCKET).remove([path]);
+      const { data, error } = await db
+        .from('preview_session_assets')
+        .insert({ session_id: session.id, kind, storage_path: path, mime_type: verdict.mime, bytes: verdict.bytes } as never)
+        .select('id')
+        .single();
+      if (error || !data) {
+        try {
+          await db.storage.from(PREVIEW_BUCKET).remove([path]);
+        } catch {
+          // Cleanup errors don't block the response
+        }
+        return fail('Upload failed. Please try again.');
+      }
+
+      try {
+        await db.from('preview_sessions').update({ updated_at: new Date().toISOString() }).eq('id', session.id);
+        revalidatePath('/');
+      } catch {
+        // Non-critical update failures
+      }
+
+      return { ok: true, assetId: data.id as string, kind };
+    } catch (innerErr) {
+      const message = innerErr instanceof Error ? innerErr.message : 'Unknown error during upload';
+      console.error('[uploadPreviewImage] error:', message, innerErr);
       return fail('Upload failed. Please try again.');
     }
-
-    await db.from('preview_sessions').update({ updated_at: new Date().toISOString() }).eq('id', session.id);
-    revalidatePath('/');
-    return { ok: true, assetId: data.id as string, kind };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error occurred during upload';
-    console.error('uploadPreviewImage failed:', message, err);
+  } catch (outerErr) {
+    console.error('[uploadPreviewImage] outer error:', outerErr);
     return fail('Upload failed. Please try again.');
   }
 }

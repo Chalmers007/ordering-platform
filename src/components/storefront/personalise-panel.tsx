@@ -19,30 +19,35 @@ export function PersonalisePanel({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [targetAssetType, setTargetAssetType] = useState<Kind | null>(null);
+  const [selectedKind, setSelectedKind] = useState<Kind | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
-    if (!file || !targetAssetType) return;
+    if (!file || !selectedKind) return;
 
     const form = new FormData();
-    form.set('kind', targetAssetType);
+    form.set('kind', selectedKind);
     form.set('file', file);
 
     startTransition(async () => {
-      const result = await uploadPreviewImage(form);
-      if (!result.ok) {
-        toast.error(result.message);
-      } else {
-        toast.success(targetAssetType === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+      try {
+        const result = await uploadPreviewImage(form);
+        if (!result.ok) {
+          toast.error(result.message);
+        } else {
+          toast.success(selectedKind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+        }
+      } catch (error) {
+        toast.error('Upload failed');
+      } finally {
+        setSelectedKind(null);
       }
-      setTargetAssetType(null);
     });
   };
 
   const handleUploadClick = (kind: Kind) => {
-    setTargetAssetType(kind);
+    setSelectedKind(kind);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
       fileInputRef.current.click();
@@ -93,7 +98,7 @@ export function PersonalisePanel({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
-        onChange={handleFileSelect}
+        onChange={handleFileChange}
       />
       {!open ? (
         <button
