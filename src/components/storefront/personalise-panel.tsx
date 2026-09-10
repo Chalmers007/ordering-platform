@@ -57,17 +57,6 @@ export function PersonalisePanel({
         <p className="text-xs text-neutral-600">{has ? 'Added to your preview' : 'JPG, PNG or WebP · up to 5MB'}</p>
       </div>
       <div className="flex shrink-0 gap-2">
-        <input
-          ref={inputs[kind]}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(kind, file);
-            e.target.value = '';
-          }}
-        />
         <button
           type="button"
           disabled={pending}
@@ -91,35 +80,59 @@ export function PersonalisePanel({
   );
 
   return (
-    <div className="mt-3 border-t border-amber-200 pt-3">
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="rounded-md border border-amber-500 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
-        >
-          Personalize This Preview
-        </button>
-      ) : (
-        <div className="rounded-md border border-amber-200 bg-white p-3">
-          <p className="text-sm text-neutral-700">
-            Add your own logo and banner to see how the storefront would look. No account needed.
-          </p>
-          {row('logo', 'Logo', hasLogo, logoAssetId)}
-          {row('banner', 'Banner image', hasBanner, bannerAssetId)}
-          <p className="mt-3 text-xs text-neutral-500">
-            These images are saved to this browser only, and move onto your storefront when you activate
-            it. Opening the preview on another device will not show them.
-          </p>
+    <>
+      <input
+        ref={inputs.logo}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload('logo', file);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={inputs.banner}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload('banner', file);
+          e.target.value = '';
+        }}
+      />
+      <div className="mt-3 border-t border-amber-200 pt-3">
+        {!open ? (
           <button
             type="button"
-            onClick={() => setOpen(false)}
-            className="mt-3 text-sm text-neutral-500 underline hover:text-neutral-700"
+            onClick={() => setOpen(true)}
+            className="rounded-md border border-amber-500 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
           >
-            Done
+            Personalize This Preview
           </button>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="rounded-md border border-amber-200 bg-white p-3">
+            <p className="text-sm text-neutral-700">
+              Add your own logo and banner to see how the storefront would look. No account needed.
+            </p>
+            {row('logo', 'Logo', hasLogo, logoAssetId)}
+            {row('banner', 'Banner image', hasBanner, bannerAssetId)}
+            <p className="mt-3 text-xs text-neutral-500">
+              These images are saved to this browser only, and move onto your storefront when you activate
+              it. Opening the preview on another device will not show them.
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="mt-3 text-sm text-neutral-500 underline hover:text-neutral-700"
+            >
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
