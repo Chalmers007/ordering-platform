@@ -43,41 +43,46 @@ export function PreviewBanner({
     <div className="border-b border-amber-300 bg-amber-50">
       {personalise.tenantId && bannerUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={bannerUrl} alt="Storefront banner" className="max-h-64 w-full object-cover" />
+        <img src={bannerUrl} alt="Storefront banner" className="h-24 w-full object-cover sm:h-auto sm:max-h-64" />
       ) : null}
-      {personalise.tenantId && logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={`${restaurantName} logo`} className="mx-auto mt-4 h-24 w-24 object-contain" />
-      ) : null}
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-900">Preview — not yet live</p>
-          <h1 className="mt-2 text-2xl font-bold text-neutral-900">{restaurantName}</h1>
-          <p className="mt-1 text-sm text-neutral-800">
+      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 pt-3 sm:gap-3 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            {personalise.tenantId && logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={`${restaurantName} logo`} className="h-12 w-12 shrink-0 rounded-md bg-white object-contain sm:h-20 sm:w-20" />
+            ) : null}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-amber-900 sm:text-sm">Preview — not yet live</p>
+              <h1 className="line-clamp-2 text-lg font-bold leading-tight text-neutral-900 sm:mt-2 sm:text-2xl">{restaurantName}</h1>
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-neutral-600 sm:hidden">Preview only · No orders or payments.</p>
+          <p className="mt-1 hidden text-sm text-neutral-800 sm:block">
             This storefront was prepared for your restaurant. Explore the menu and see how online
             ordering could look.
           </p>
-          <p className="mt-1 text-xs text-neutral-600">
+          <p className="mt-1 hidden text-xs text-neutral-600 sm:block">
             The menu below was read from your website. Nothing here can take an order or a payment yet,
             and prices are not live until you confirm them.
           </p>
         </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 lg:shrink-0">
           <Link
             href={ctaHref}
-            className="rounded-md bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-amber-600"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-amber-500 px-3 py-2 text-center text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-amber-600"
           >
             Activate My Storefront
           </Link>
           <Link
             href={walkthroughHref}
-            className="rounded-md border border-amber-500 bg-white px-4 py-2 text-center text-sm font-semibold text-amber-700 hover:bg-amber-100"
+            className="inline-flex min-h-11 items-center text-xs font-semibold text-amber-800 underline underline-offset-4 hover:text-amber-950 sm:text-sm"
           >
             Book a Walkthrough
           </Link>
         </div>
       </div>
-      <div className="mx-auto max-w-5xl px-4 pb-4">
+      <div className="mx-auto flex max-w-5xl justify-end px-4 pb-1 sm:pb-2">
         <PersonalisePanel {...personalise} onImageChange={(kind, url) => setImages((current) => ({ ...current, [kind]: url }))} />
       </div>
     </div>
