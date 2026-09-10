@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getTenantContext } from '@/lib/tenancy/context';
-import { isPreviewRequest } from '@/lib/storefront/preview';
 import { ensurePreviewSession, currentPreviewSession, sessionAssets } from './session';
 import { validateUpload, MAX_UPLOAD_BYTES } from './validate';
 import { PREVIEW_BUCKET } from './bucket';
@@ -29,42 +28,13 @@ export type UploadResult =
 
 const fail = (message: string): UploadResult => ({ ok: false, message });
 
-/** Resolves the tenant, and refuses unless this really is an unclaimed preview or demo. */
-async function previewTenantId(): Promise<string | null> {
-  try {
-    const tenant = await getTenantContext();
-    if (!tenant) return null;
-
-    // Check if this is a pending_claim preview storefront
-    if (await isPreviewRequest()) {
-      return tenant.tenantId;
-    }
-
-    // Also allow personalization for any route where we can establish a preview session.
-    // This includes demo fallback storefronts and /preview/[id] routes.
-    // We don't need to check demo_fallback_state specifically — if the tenant exists
-    // and we can create a session, personalization should be allowed.
-    try {
-      // Try to ensure a preview session exists. If successful, this tenant supports previews.
-      await ensurePreviewSession(tenant.tenantId);
-      return tenant.tenantId;
-    } catch (sessionErr) {
-      // Session creation failed — not a preview/demo storefront
-      console.error('[previewTenantId] session check failed:', sessionErr);
-    }
-
-    return null;
-  } catch (err) {
-    console.error('[previewTenantId] unexpected error:', err);
-    return null;
-  }
-}
-
 export async function uploadPreviewImage(form: FormData): Promise<UploadResult> {
   try {
     try {
-      const tenantId = await previewTenantId();
-      if (!tenantId) return fail('This storefront is not open for personalisation.');
+      // Get tenant directly - if we have one in context, allow personalization
+      const tenant = await getTenantContext();
+      if (!tenant) return fail('Tenant not found.');
+      const tenantId = tenant.tenantId;
 
       const kindRaw = String(form.get('kind') ?? '');
       if (!['logo', 'banner', 'item'].includes(kindRaw)) return fail('Unknown image type.');
@@ -139,8 +109,10 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
 export async function removePreviewImage(assetId: string): Promise<UploadResult> {
   try {
     try {
-      const tenantId = await previewTenantId();
-      if (!tenantId) return fail('This storefront is not open for personalisation.');
+      // Get tenant directly - if we have one in context, allow personalization
+      const tenant = await getTenantContext();
+      if (!tenant) return fail('Tenant not found.');
+      const tenantId = tenant.tenantId;
 
       const session = await currentPreviewSession(tenantId);
       // No session cookie means no claim to any of these files. This is what stops
