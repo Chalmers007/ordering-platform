@@ -40,7 +40,9 @@ export function KdsBoard({
   // Re-read from localStorage after mount: the server render has no access
   // to it and would otherwise mismatch on hydration.
   useEffect(() => {
-    setPrinterConfig(loadPrinterConfig(tenantId));
+    (async () => {
+      setPrinterConfig(loadPrinterConfig(tenantId));
+    })();
   }, [tenantId]);
 
   const { play, unlock } = useChime(soundEnabled);

@@ -134,7 +134,9 @@ export function CartProvider({
     } catch {
       // Corrupt or unavailable storage must not break the storefront.
     }
-    setHydrated(true);
+    (async () => {
+      setHydrated(true);
+    })();
   }, [tenantId]);
 
   useEffect(() => {

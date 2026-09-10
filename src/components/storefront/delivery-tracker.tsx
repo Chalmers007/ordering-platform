@@ -18,10 +18,6 @@ export function DeliveryTracker({ orderId, trackingToken }: { orderId: string; t
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let pollInterval: NodeJS.Timeout;
-    let timerInterval: NodeJS.Timeout;
-
     const fetchStatus = async () => {
       try {
         const res = await fetch(`/api/orders/${orderId}/tracking?token=${trackingToken}`);
@@ -54,9 +50,8 @@ export function DeliveryTracker({ orderId, trackingToken }: { orderId: string; t
     };
 
     fetchStatus();
-    pollInterval = setInterval(fetchStatus, 10000);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    timerInterval = setInterval(updateTimer, 15000);
+    const pollInterval = setInterval(fetchStatus, 10000);
+    const timerInterval = setInterval(updateTimer, 15000);
     updateTimer();
 
     return () => {
@@ -90,8 +85,7 @@ export function DeliveryTracker({ orderId, trackingToken }: { orderId: string; t
               <AlertCircle className="h-6 w-6 text-red-600" />
             </div>
             <div>
-    // eslint-disable-next-line
-              <p className="text-sm text-gray-600">Delivery couldn't complete</p>
+              <p className="text-sm text-gray-600">Delivery couldn&apos;t complete</p>
               <p className="font-semibold text-gray-900">Please contact support</p>
             </div>
           </div>

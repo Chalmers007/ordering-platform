@@ -389,6 +389,7 @@ async function addSampleMenuModifiers(db: SupabaseClient<Database>, tenantId: st
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: linkError } = await (db as any).from('menu_item_modifier_groups').insert(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items.flatMap((item: any) => [
           { tenant_id: tenantId, item_id: item.id, group_id: sizeGroup.id, sort_order: 0 },
           { tenant_id: tenantId, item_id: item.id, group_id: toppingsGroup.id, sort_order: 1 },

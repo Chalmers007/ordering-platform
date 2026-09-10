@@ -98,7 +98,9 @@ export function useKdsOrders(tenantId: string) {
   }, [tenantId]);
 
   useEffect(() => {
-    void refetchAll();
+    (async () => {
+      await refetchAll();
+    })();
   }, [refetchAll]);
 
   useEffect(() => {

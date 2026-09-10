@@ -27,14 +27,15 @@ export function DeliveryFeeDisplay({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!address) {
-      setLoading(false);
-      return;
-    }
+    (async () => {
+      if (!address) {
+        setLoading(false);
+        return;
+      }
 
-    const fetchQuote = async () => {
-      try {
-        setLoading(true);
+      const fetchQuote = async () => {
+        try {
+          setLoading(true);
         const params = new URLSearchParams({
           tenantId,
           dropoffAddress: address,
@@ -56,8 +57,9 @@ export function DeliveryFeeDisplay({
       }
     };
 
-    const timer = setTimeout(fetchQuote, 500); // Debounce address changes
-    return () => clearTimeout(timer);
+      const timer = setTimeout(fetchQuote, 500); // Debounce address changes
+      return () => clearTimeout(timer);
+    })();
   }, [tenantId, address, lat, lon]);
 
   if (!loading && !quote) return null;

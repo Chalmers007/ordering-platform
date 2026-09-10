@@ -42,6 +42,7 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
   };
 
   // Find unassigned deliveries that haven't been retried recently
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: deliveries, error } = await (service as any)
     .from('deliveries')
     .select('id, order_id, failure_reason, attempts')
@@ -56,6 +57,7 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
 
   for (const delivery of deliveries) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dispatchResult = await autoDispatch((delivery as any).order_id);
 
       if (dispatchResult.dispatched) {
@@ -68,10 +70,12 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
         });
 
         // Schedule next retry
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nextAttempt = ((delivery as any).attempts || 0) + 1;
         const backoff = backoffSeconds(nextAttempt);
         const nextRetry = new Date(Date.now() + backoff * 1000);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (service as any)
           .from('deliveries')
           .update({
@@ -79,6 +83,7 @@ export async function retryFailedDispatches(): Promise<RetryResult> {
             next_retry_at: nextRetry.toISOString(),
             failure_reason: dispatchResult.reason,
           })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .eq('id', (delivery as any).id);
       }
 

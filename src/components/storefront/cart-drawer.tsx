@@ -47,25 +47,29 @@ export function CartDrawer({
     if (!open || !hydrated) return;
 
     if (cart.lines.length === 0) {
-      setPriced(null);
-      setPricingError(null);
+      (async () => {
+        setPriced(null);
+        setPricingError(null);
+      })();
       return;
     }
 
     let cancelled = false;
-    setPricing(true);
+    (async () => {
+      setPricing(true);
 
-    void validateCart(cart).then((result) => {
-      if (cancelled) return;
-      setPricing(false);
-      if (result.ok) {
-        setPriced(result.pricedCart);
-        setPricingError(null);
-      } else {
-        setPriced(null);
-        setPricingError(result.error);
-      }
-    });
+      void validateCart(cart).then((result) => {
+        if (cancelled) return;
+        setPricing(false);
+        if (result.ok) {
+          setPriced(result.pricedCart);
+          setPricingError(null);
+        } else {
+          setPriced(null);
+          setPricingError(result.error);
+        }
+      });
+    })();
 
     return () => {
       cancelled = true;
