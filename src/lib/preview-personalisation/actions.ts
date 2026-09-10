@@ -40,26 +40,19 @@ async function previewTenantId(): Promise<string | null> {
       return tenant.tenantId;
     }
 
-    // Also allow personalization for demo fallback storefronts
-    // Demo storefronts have their own state machine and don't have pending_claim status
+    // Also allow personalization for any route where we can establish a preview session.
+    // This includes demo fallback storefronts and /preview/[id] routes.
+    // We don't need to check demo_fallback_state specifically — if the tenant exists
+    // and we can create a session, personalization should be allowed.
     try {
-      const db = createServiceClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: fallback } = await (db as any)
-        .from('demo_fallback_state')
-        .select('tenant_id')
-        .eq('tenant_id', tenant.tenantId)
-        .maybeSingle();
-
-      if (fallback) {
-        return tenant.tenantId;
-      }
-    } catch (dbErr) {
-      // Database errors don't block — treat as non-demo if we can't check
-      console.error('[previewTenantId] demo check failed:', dbErr);
+      // Try to ensure a preview session exists. If successful, this tenant supports previews.
+      await ensurePreviewSession(tenant.tenantId);
+      return tenant.tenantId;
+    } catch (sessionErr) {
+      // Session creation failed — not a preview/demo storefront
+      console.error('[previewTenantId] session check failed:', sessionErr);
     }
 
-    // Not a preview or demo storefront
     return null;
   } catch (err) {
     console.error('[previewTenantId] unexpected error:', err);
