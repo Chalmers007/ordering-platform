@@ -7,11 +7,15 @@ import { uploadPreviewImage, removePreviewImage } from '@/lib/preview-personalis
 type Kind = 'logo' | 'banner';
 
 export function PersonalisePanel({
+  tenantId,
+  onImageChange,
   hasLogo,
   hasBanner,
   logoAssetId,
   bannerAssetId,
 }: {
+  tenantId?: string;
+  onImageChange?: (kind: Kind, url: string | null) => void;
   hasLogo: boolean;
   hasBanner: boolean;
   logoAssetId: string | null;
@@ -40,6 +44,7 @@ export function PersonalisePanel({
 
     const form = new FormData();
     form.set('kind', kind);
+    if (tenantId) form.set('tenantId', tenantId);
     form.set('file', file);
 
     startTransition(async () => {
@@ -51,6 +56,7 @@ export function PersonalisePanel({
           if (!result.ok) {
             toast.error(result.message);
           } else {
+            if (result.url) onImageChange?.(kind, result.url);
             toast.success(kind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
           }
         } catch (uiError) {
@@ -85,9 +91,12 @@ export function PersonalisePanel({
 
   const remove = (assetId: string) => {
     startTransition(async () => {
-      const result = await removePreviewImage(assetId);
+      const result = await removePreviewImage(assetId, tenantId);
       if (!result.ok) toast.error(result.message);
-      else toast.success('Image removed');
+      else {
+        if (result.kind !== 'item') onImageChange?.(result.kind, null);
+        toast.success('Image removed');
+      }
     });
   };
 

@@ -1,12 +1,11 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/types/supabase';
 import { loadStorefront } from '@/lib/storefront/data';
 import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
 import { claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
 import { createServiceClient } from '@/lib/supabase/server';
+import { PREVIEW_BUCKET } from '@/lib/preview-personalisation/bucket';
 import { CartProvider } from '@/lib/cart/cart-context';
 
 export const dynamic = 'force-dynamic';
@@ -49,6 +48,12 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
   const logo = uploads.find((a) => a.kind === 'logo') ?? null;
   const banner = uploads.find((a) => a.kind === 'banner') ?? null;
 
+  const bucket = createServiceClient().storage.from(PREVIEW_BUCKET);
+  const [logoLink, bannerLink] = await Promise.all([
+    logo ? bucket.createSignedUrl(logo.storagePath, 604800) : null,
+    banner ? bucket.createSignedUrl(banner.storagePath, 604800) : null,
+  ]);
+
   return (
     <CartProvider tenantId={tenantId} defaultFulfillment={storefront.settings.accepts_delivery ? 'delivery' : 'pickup'}>
       <PreviewBanner
@@ -56,6 +61,9 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
         ctaHref={claimCtaHref()}
         walkthroughHref={walkthroughCtaHref()}
         personalise={{
+          tenantId,
+          logoUrl: logoLink?.data?.signedUrl,
+          bannerUrl: bannerLink?.data?.signedUrl,
           hasLogo: Boolean(logo),
           hasBanner: Boolean(banner),
           logoAssetId: logo?.id ?? null,

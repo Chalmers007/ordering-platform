@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { PersonalisePanel } from './personalise-panel';
 
@@ -30,10 +33,21 @@ export function PreviewBanner({
   ctaHref: string;
   walkthroughHref: string;
   /** Absent when the visitor has uploaded nothing yet. */
-  personalise: { hasLogo: boolean; hasBanner: boolean; logoAssetId: string | null; bannerAssetId: string | null };
+  personalise: { tenantId?: string; logoUrl?: string; bannerUrl?: string; hasLogo: boolean; hasBanner: boolean; logoAssetId: string | null; bannerAssetId: string | null };
 }) {
+  const [images, setImages] = useState<{ logo?: string | null; banner?: string | null }>({});
+  const logoUrl = images.logo === undefined ? personalise.logoUrl : images.logo;
+  const bannerUrl = images.banner === undefined ? personalise.bannerUrl : images.banner;
   return (
     <div className="border-b border-amber-300 bg-amber-50">
+      {personalise.tenantId && bannerUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bannerUrl} alt="Storefront banner" className="max-h-64 w-full object-cover" />
+      ) : null}
+      {personalise.tenantId && logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={`${restaurantName} logo`} className="mx-auto mt-4 h-24 w-24 object-contain" />
+      ) : null}
       <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-900">Preview — not yet live</p>
@@ -63,7 +77,7 @@ export function PreviewBanner({
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 pb-4">
-        <PersonalisePanel {...personalise} />
+        <PersonalisePanel {...personalise} onImageChange={(kind, url) => setImages((current) => ({ ...current, [kind]: url }))} />
       </div>
     </div>
   );

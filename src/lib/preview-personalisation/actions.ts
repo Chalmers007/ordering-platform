@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/server';
-import { getTenantContext } from '@/lib/tenancy/context';
+import { resolvePreviewTenant } from './tenant';
+import { randomUUID } from 'node:crypto';
 import { ensurePreviewSession, currentPreviewSession, sessionAssets } from './session';
 import { validateUpload, MAX_UPLOAD_BYTES } from './validate';
 import { PREVIEW_BUCKET } from './bucket';
@@ -16,14 +17,14 @@ import { PREVIEW_BUCKET } from './bucket';
  * a permanent storefront change. The transfer onto the tenant happens once, in
  * the claim route, and only after a claim has actually succeeded.
  *
- * The tenant is taken from the request host, never from an argument — there is
- * no parameter a caller could point at somebody else's restaurant.
+ * Host tenants use trusted routing headers; path preview IDs are verified
+ * against server-side tenant, fallback, or session records.
  */
 
 const MAX_ASSETS_PER_SESSION = 12;
 
 export type UploadResult =
-  | { ok: true; assetId: string; kind: 'logo' | 'banner' | 'item' }
+  | { ok: true; assetId: string; url?: string; kind: 'logo' | 'banner' | 'item' }
   | { ok: false; message: string };
 
 const fail = (message: string): UploadResult => ({ ok: false, message });
@@ -32,7 +33,7 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
   try {
     try {
       // Get tenant directly - if we have one in context, allow personalization
-      const tenant = await getTenantContext();
+      const tenant = await resolvePreviewTenant(String(form.get('tenantId') ?? ''));
       if (!tenant) return fail('Tenant not found.');
       const tenantId = tenant.tenantId;
 
@@ -48,7 +49,21 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
       const verdict = validateUpload(file.type || null, bytes);
       if (!verdict.ok) return fail(verdict.message);
 
-      const session = await ensurePreviewSession(tenantId);
+      // Fallback-only demos cannot create a session with a tenants foreign key.
+      if (!tenant.persisted && !tenant.session) {
+        const db = createServiceClient();
+        const path = `previews/${tenantId}/${randomUUID()}.${verdict.extension}`;
+        const bucket = db.storage.from(PREVIEW_BUCKET);
+        const { error } = await bucket.upload(path, bytes, { contentType: verdict.mime, upsert: false });
+        if (error) return fail('Upload failed. Please try again.');
+        const { data: link, error: linkError } = await bucket.createSignedUrl(path, 604800);
+        if (linkError || !link) {
+          await bucket.remove([path]);
+          return fail('Upload failed. Please try again.');
+        }
+        return { ok: true, assetId: '', kind, url: link.signedUrl };
+      }
+      const session = tenant.session ?? await ensurePreviewSession(tenantId);
       const db = createServiceClient();
 
       const existing = await sessionAssets(session.id);
@@ -90,11 +105,14 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
       try {
         await db.from('preview_sessions').update({ updated_at: new Date().toISOString() }).eq('id', session.id);
         revalidatePath('/');
+        revalidatePath(`/preview/${tenantId}`);
       } catch {
         // Non-critical update failures
       }
 
-      return { ok: true, assetId: data.id as string, kind };
+      const { data: link } = await db.storage.from(PREVIEW_BUCKET).createSignedUrl(path, 604800);
+      if (!link) return fail('Image saved, but its preview URL could not be created. Please try again.');
+      return { ok: true, assetId: data.id as string, kind, url: link.signedUrl };
     } catch (innerErr) {
       const message = innerErr instanceof Error ? innerErr.message : 'Unknown error during upload';
       console.error('[uploadPreviewImage] error:', message, innerErr);
@@ -106,11 +124,11 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
   }
 }
 
-export async function removePreviewImage(assetId: string): Promise<UploadResult> {
+export async function removePreviewImage(assetId: string, requestedTenantId?: string): Promise<UploadResult> {
   try {
     try {
       // Get tenant directly - if we have one in context, allow personalization
-      const tenant = await getTenantContext();
+      const tenant = await resolvePreviewTenant(requestedTenantId);
       if (!tenant) return fail('Tenant not found.');
       const tenantId = tenant.tenantId;
 
@@ -131,6 +149,7 @@ export async function removePreviewImage(assetId: string): Promise<UploadResult>
       await db.storage.from(PREVIEW_BUCKET).remove([asset.storage_path as string]);
       await db.from('preview_session_assets').delete().eq('id', asset.id);
       revalidatePath('/');
+      revalidatePath(`/preview/${tenantId}`);
       return { ok: true, assetId: asset.id as string, kind: asset.kind as 'logo' | 'banner' | 'item' };
     } catch (innerErr) {
       const message = innerErr instanceof Error ? innerErr.message : 'Unknown error occurred during removal';
