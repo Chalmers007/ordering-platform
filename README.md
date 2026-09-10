@@ -304,11 +304,19 @@ Local hosts work without editing `/etc/hosts`:
 ## Testing
 
 ```bash
-npm test          # vitest — host/routing units
+npm test          # unit and mocked tests; no database or .env files required
+npm run test:db   # opt in to live Supabase database/storage suites
 npm run test:sql  # resets the local DB and runs supabase/tests/*.sql
 npm run typecheck
 npm run build
 ```
+
+Live Vitest suites require `RUN_DATABASE_TESTS=1` (set by `test:db`) and exported
+`NEXT_PUBLIC_SUPABASE_URL` (or `SUPABASE_URL`), `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+and `SUPABASE_SERVICE_ROLE_KEY` for a seeded local test instance. They do not
+automatically load `.env.local`; a SQL `DATABASE_URL` alone is insufficient for
+the REST and Storage APIs. Without opt-in, only live database cases are skipped;
+pure assertions and mocked upload tests still run in CI.
 
 The SQL suites are real regression tests, not smoke checks: each negative case
 raises `FAIL: ...` (errcode `P0001`), which no handler catches, so a regression

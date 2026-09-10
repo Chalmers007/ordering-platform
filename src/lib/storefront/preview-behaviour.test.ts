@@ -1,13 +1,9 @@
+import { databaseTestsEnabled } from '../../../test-support/database-tests';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-// Loaded at module scope: createServiceClient() reads these when the module
-// under test is first evaluated, which happens before beforeAll runs.
-process.loadEnvFile('.env.local');
 import { createClient } from '@supabase/supabase-js';
 
-// NOT a static import: @/lib/supabase/server reads its env at module scope,
-// and ES imports are hoisted above the loadEnvFile below — so importing the
-// loader statically evaluates it before the environment exists.
+// Import the loader only when running the live database suite.
 type LoadStorefront = typeof import('./data').loadStorefront;
 let loadStorefront: LoadStorefront;
 
@@ -26,6 +22,7 @@ const admin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
 beforeAll(async () => {
+  if (!databaseTestsEnabled) return;
   ({ loadStorefront } = await import('./data'));
   const db = admin();
   await db.from('menu_items').delete().eq('tenant_id', TENANT);
@@ -37,13 +34,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!databaseTestsEnabled) return;
   const db = admin();
   await db.from('menu_items').delete().eq('tenant_id', TENANT);
   await db.from('menu_categories').delete().eq('tenant_id', TENANT);
   await db.from('tenants').delete().eq('id', TENANT);
 });
 
-describe('loading an unclaimed storefront', () => {
+describe.skipIf(!databaseTestsEnabled)('loading an unclaimed storefront', () => {
   it('returns the menu when loaded as a preview', async () => {
     const store = await loadStorefront(TENANT, { preview: true });
     expect(store).not.toBeNull();

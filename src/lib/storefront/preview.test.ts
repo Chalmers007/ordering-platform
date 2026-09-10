@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PreviewBanner } from '@/components/storefront/preview-banner';
 
 const PROXY = readFileSync('src/proxy.ts', 'utf8');
 const PAGE = readFileSync('src/app/(storefront)/store/page.tsx', 'utf8');
@@ -69,9 +72,17 @@ describe('what the preview shows and hides', () => {
     expect(BANNER).toMatch(/Activate My Storefront/);
   });
 
-  it('never renders a claim token, tenant id, or internal field', () => {
-    for (const forbidden of [/claim_token/i, /tenantId/, /tenant_id/, /token=/, /service_role/i, /stripe/i]) {
-      expect(BANNER).not.toMatch(forbidden);
+  it('keeps internal identifiers out of rendered banner text and links', () => {
+    const tenantId = '5cdc250d-87c5-4651-a441-6037852ca1bd';
+    const html = renderToStaticMarkup(createElement(PreviewBanner, {
+      restaurantName: 'Demo Storefront',
+      ctaHref: '/claim',
+      walkthroughHref: '/walkthrough',
+      personalise: { tenantId, hasLogo: false, hasBanner: false, logoAssetId: null, bannerAssetId: null },
+    }));
+    expect(html).not.toContain(tenantId);
+    for (const forbidden of [/claim_token/i, /tenant_id/, /token=/, /service_role/i, /stripe/i]) {
+      expect(html).not.toMatch(forbidden);
     }
   });
 

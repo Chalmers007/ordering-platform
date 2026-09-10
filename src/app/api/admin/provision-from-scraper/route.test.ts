@@ -1,3 +1,4 @@
+import { databaseTestsEnabled } from '../../../../../test-support/database-tests';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { POST } from './route';
@@ -45,13 +46,10 @@ const db = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 const created: string[] = [];
 
 beforeAll(() => {
-  // Vitest does not read .env.local, and this suite talks to the real local
-  // database. Loaded here rather than in a global setup file so the rest of the
-  // suite keeps running without credentials.
-  process.loadEnvFile('.env.local');
   process.env.PROVISION_BRIDGE_SECRET = SECRET;
 });
 afterAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
   for (const id of created) {
     await c.from('menu_items').delete().eq('tenant_id', id);
@@ -88,7 +86,9 @@ describe('dry run', () => {
     // assertion fail whenever another suite created one in parallel — a flaw
     // in the test, not in the dry run.
     const slug = 'copper-pot-route-test';
-    const before = await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug);
+    const before = databaseTestsEnabled
+      ? await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug)
+      : null;
     const res = await post({ content: page, sourceUrl: 'https://copperpot.example/menu' }, { dryRun: true });
     const body = await res.json();
 
@@ -109,8 +109,10 @@ describe('dry run', () => {
     // A dry run hands back no ownership credential, and writes no tenant.
     expect(body.claimUrl).toBeUndefined();
     expect(body.tenantId).toBeUndefined();
-    const after = await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug);
-    expect(after.count).toBe(before.count);
+    if (before) {
+      const after = await db().from('tenants').select('id', { count: 'exact', head: true }).eq('slug', slug);
+      expect(after.count).toBe(before.count);
+    }
   });
 
   it('reports a page that is not a menu as 422, not a server fault', async () => {
@@ -125,7 +127,7 @@ describe('dry run', () => {
   });
 });
 
-describe('staging a real storefront', () => {
+describe.skipIf(!databaseTestsEnabled)('staging a real storefront', () => {
   it('creates a claim-gated tenant whose menu cannot be ordered', async () => {
     const res = await post({ content: page, sourceUrl: 'https://copperpot.example/menu' });
     const body = await res.json();
@@ -171,7 +173,7 @@ describe('staging a real storefront', () => {
   });
 });
 
-describe('a name that is already taken', () => {
+describe.skipIf(!databaseTestsEnabled)('a name that is already taken', () => {
   it('is a 409, not a 500 — the menu was fine and the name is the problem', async () => {
     // provision_tenant refuses rather than overwriting, which is what stops a
     // second run clobbering a storefront somebody may already hold a claim

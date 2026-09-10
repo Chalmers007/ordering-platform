@@ -1,8 +1,7 @@
+import { databaseTestsEnabled } from '../../../test-support/database-tests';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-
-process.loadEnvFile('.env.local');
 
 /**
  * confirm_menu() is what turns an imported menu into an orderable one, so the
@@ -40,8 +39,9 @@ async function seed() {
   ] as never);
 }
 
-beforeAll(seed);
+beforeAll(async () => { if (databaseTestsEnabled) await seed(); });
 afterAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
   for (const t of [OWNER_TENANT, OTHER_TENANT]) {
     await c.from('menu_items').delete().eq('tenant_id', t);
@@ -50,7 +50,7 @@ afterAll(async () => {
   }
 });
 
-describe('confirm_menu', () => {
+describe.skipIf(!databaseTestsEnabled)('confirm_menu', () => {
   it('stages scraped items unavailable before anyone confirms', async () => {
     const { data } = await db().from('menu_items').select('name, is_available, source').eq('tenant_id', OWNER_TENANT);
     const scraped = data!.filter((i) => i.source === 'scraped');

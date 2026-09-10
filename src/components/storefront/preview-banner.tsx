@@ -13,7 +13,8 @@ import { PersonalisePanel } from './personalise-panel';
  * taking orders. Anything vaguer risks a diner believing they have ordered
  * dinner, or an owner believing prices they never approved are already live.
  *
- * No tenant id, token, or internal field appears here. The claim link is a
+ * No tenant id or credential is displayed. The preview tenant ID is passed
+ * to the upload control for server-side validation. The claim link is a
  * bearer credential and is never rendered on a public page — the call to
  * action leads to the sales route, which is where a real claim link is issued
  * from after the business is spoken to.

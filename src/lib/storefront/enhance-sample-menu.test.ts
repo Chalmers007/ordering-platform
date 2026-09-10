@@ -1,11 +1,7 @@
+import { databaseTestsEnabled } from '../../../test-support/database-tests';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { existsSync } from 'fs';
 import { enhanceSampleMenu } from './enhance-sample-menu';
-
-if (existsSync('.env.local')) {
-  process.loadEnvFile('.env.local');
-}
 
 const TENANT_ID = '0e55bb00-0000-4000-8000-000000000099';
 const CAT_ID = '0e55bb00-0002-4000-8000-000000000099';
@@ -16,6 +12,7 @@ const db = () =>
   });
 
 beforeAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
 
   // Clean up any existing test data
@@ -91,6 +88,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
   await c.from('menu_item_modifier_groups').delete().eq('tenant_id', TENANT_ID);
   await c.from('menu_modifiers').delete().eq('tenant_id', TENANT_ID);
@@ -100,7 +98,7 @@ afterAll(async () => {
   await c.from('tenants').delete().eq('id', TENANT_ID);
 });
 
-describe('enhanceSampleMenu', () => {
+describe.skipIf(!databaseTestsEnabled)('enhanceSampleMenu', () => {
   it('creates modifier groups with correct configurations', async () => {
     const c = db();
     const result = await enhanceSampleMenu({ tenantId: TENANT_ID, db: c });

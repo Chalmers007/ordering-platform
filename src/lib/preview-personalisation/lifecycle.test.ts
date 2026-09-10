@@ -1,8 +1,7 @@
+import { databaseTestsEnabled } from '../../../test-support/database-tests';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-
-process.loadEnvFile('.env.local');
 
 /**
  * Session isolation, expiry, transfer-on-claim, and the promise that nothing
@@ -40,6 +39,7 @@ async function addAsset(sessionId: string, kind: string, path: string) {
 }
 
 beforeAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
   for (const t of [TENANT, OTHER]) {
     await c.from('preview_sessions').delete().eq('tenant_id', t);
@@ -52,6 +52,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!databaseTestsEnabled) return;
   const c = db();
   for (const t of [TENANT, OTHER]) {
     await c.from('preview_sessions').delete().eq('tenant_id', t);
@@ -59,7 +60,7 @@ afterAll(async () => {
   }
 });
 
-describe('session isolation', () => {
+describe.skipIf(!databaseTestsEnabled)('session isolation', () => {
   it('a token only addresses its own session, and only for its own tenant', async () => {
     const mine = await makeSession(TENANT, 'token-mine');
     await makeSession(OTHER, 'token-theirs');
@@ -88,7 +89,7 @@ describe('session isolation', () => {
   });
 });
 
-describe('uploads never touch the tenant before a claim', () => {
+describe.skipIf(!databaseTestsEnabled)('uploads never touch the tenant before a claim', () => {
   it('leaves tenant_settings and the tenant row untouched', async () => {
     const s = await makeSession(TENANT, 'token-untouched');
     await addAsset(s, 'logo', `${s}/logo-1.jpg`);
@@ -124,7 +125,7 @@ describe('uploads never touch the tenant before a claim', () => {
   });
 });
 
-describe('expiry and cleanup', () => {
+describe.skipIf(!databaseTestsEnabled)('expiry and cleanup', () => {
   it('lists an abandoned session with the files to delete', async () => {
     const stale = await makeSession(TENANT, 'token-stale', new Date(Date.now() - 86_400_000).toISOString());
     await addAsset(stale, 'logo', `${stale}/logo.jpg`);
@@ -168,7 +169,7 @@ async function storageWorks(): Promise<boolean> {
   return !r.error;
 }
 
-describe('transfer on claim', () => {
+describe.skipIf(!databaseTestsEnabled)('transfer on claim', () => {
   it('moves the images onto the tenant and marks the session done', async (ctx) => {
     if (!(await storageWorks())) return ctx.skip();
     const { transferPreviewSession } = await import('./transfer');
