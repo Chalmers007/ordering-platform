@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { uploadPreviewImage, removePreviewImage } from '@/lib/preview-personalisation/actions';
 
@@ -50,7 +50,7 @@ export function PersonalisePanel({
     });
   };
 
-  const row = useCallback((kind: Kind, label: string, has: boolean, assetId: string | null) => (
+  const row = (kind: Kind, label: string, has: boolean, assetId: string | null) => (
     <div className="flex items-center justify-between gap-3 border-t border-amber-200 py-3 first:border-t-0">
       <div>
         <p className="text-sm font-medium text-neutral-900">{label}</p>
@@ -88,7 +88,7 @@ export function PersonalisePanel({
         ) : null}
       </div>
     </div>
-  ), [pending, upload, remove]);
+  );
 
   return (
     <div className="mt-3 border-t border-amber-200 pt-3">
