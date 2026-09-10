@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
 
   let body: z.infer<typeof payloadSchema>;
   try {
-    body = payloadSchema.parse(await request.json());
+    // The raw body was already consumed above for signature verification. Parse
+    // that exact string rather than reading the request stream a second time.
+    body = payloadSchema.parse(JSON.parse(raw));
   } catch (error) {
     const message = error instanceof z.ZodError ? error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') : 'Invalid JSON body';
     return NextResponse.json({ error: message }, { status: 400 });
