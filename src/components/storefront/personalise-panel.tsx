@@ -19,43 +19,44 @@ export function PersonalisePanel({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [selectedKind, setSelectedKind] = useState<Kind | null>(null);
+  const selectedKindRef = useRef<Kind | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
-    console.log('File input onChange fired', { file, selectedKind, files: event.currentTarget.files });
+    const kind = selectedKindRef.current;
+    console.log('File input onChange fired', { file, kind, files: event.currentTarget.files });
 
     if (!file) {
       console.warn('No file selected');
       return;
     }
 
-    if (!selectedKind) {
-      console.warn('No selectedKind set when file was selected', selectedKind);
+    if (!kind) {
+      console.warn('No kind set when file was selected', kind);
       toast.error('Please select a file to replace first');
       return;
     }
 
     const form = new FormData();
-    form.set('kind', selectedKind);
+    form.set('kind', kind);
     form.set('file', file);
 
     startTransition(async () => {
       try {
-        console.log('Starting upload for', selectedKind, 'file:', file.name);
+        console.log('Starting upload for', kind, 'file:', file.name);
         const result = await uploadPreviewImage(form);
         console.log('Upload result:', result);
         if (!result.ok) {
           toast.error(result.message);
         } else {
-          toast.success(selectedKind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+          toast.success(kind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
         }
       } catch (error) {
         console.error('Upload error:', error);
         toast.error('Upload failed');
       } finally {
-        setSelectedKind(null);
+        selectedKindRef.current = null;
         // Clear input so same file can be selected again
         event.currentTarget.value = '';
       }
@@ -64,7 +65,7 @@ export function PersonalisePanel({
 
   const handleUploadClick = (kind: Kind) => {
     console.log('Upload button clicked', kind);
-    setSelectedKind(kind);
+    selectedKindRef.current = kind;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
       console.log('Triggering file input click for', kind);
