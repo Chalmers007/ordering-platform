@@ -13,20 +13,16 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { createFallback } from '@/lib/demo/fallback';
 import { ensurePreviewSession } from '@/lib/preview-personalisation/session';
+import { slugify } from '@/lib/scraper/schema';
+import { demoCreateSchema, normalizeDemoInput } from '@/lib/demo/create-input';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-const createDemoSchema = z.object({
-  name: z.string().min(1).max(200),
-  website: z.string().url().optional().or(z.literal('')),
-});
 
 function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,13 +50,12 @@ function hashName(name: string): string {
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const name = formData.get('name')?.toString() || '';
-    const website = formData.get('website')?.toString() || '';
+    // Accept both the original API names and the field names used by the
+    // sales builder. Only business name is required; the fallback path supplies
+    // the sample menu and derives a stable slug when the rest is absent.
+    const validated = demoCreateSchema.parse(normalizeDemoInput(formData));
 
-    const validated = createDemoSchema.parse({
-      name,
-      website: website || undefined,
-    });
+    const generatedSlug = slugify(validated.slug || validated.name);
 
     const db = serviceClient();
 
@@ -88,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Create new fallback
     const fallback = await createFallback({
       name: validated.name,
-      category: 'restaurant',
+      category: validated.foodType || 'restaurant',
     });
 
     // Record the name hash so we can find it again
@@ -102,7 +97,8 @@ export async function POST(request: NextRequest) {
     // Start preview session
     const session = await ensurePreviewSession(fallback.tenant_id);
 
-    // Queue background tasks if website provided
+    // Queue background tasks if website provided. The fallback sample menu is
+    // already complete when no scraper URL is supplied.
     if (validated.website) {
       // Trigger background scraping (fire and forget)
       queueWebsiteScrape(fallback.tenant_id, validated.website).catch((err) => {
@@ -113,7 +109,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         tenant_id: fallback.tenant_id,
-        slug: fallback.slug,
+        slug: fallback.slug || generatedSlug,
         preview_url: fallback.preview_url,
         state: fallback.state,
         expires_at: session.expiresAt,
@@ -121,9 +117,16 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof Error && error.name === 'ZodError' && 'issues' in error) {
+      const issues = (error as { issues: Array<{ path: PropertyKey[]; message: string }> }).issues;
       return NextResponse.json(
-        { error: 'Invalid input', issues: error.issues },
+        {
+          error: 'Please check the highlighted fields.',
+          issues: issues.map((issue) => ({
+            field: issue.path.join('.') || 'form',
+            message: issue.message,
+          })),
+        },
         { status: 400 }
       );
     }

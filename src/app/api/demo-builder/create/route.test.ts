@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { sampleMenuContent } from '@/lib/demo/fallback';
 import { parseStructured } from '@/lib/scraper/provider';
+import { demoCreateSchema, normalizeDemoInput } from '@/lib/demo/create-input';
 
 /**
  * Tests for POST /api/demo-builder/create
@@ -18,6 +19,43 @@ import { parseStructured } from '@/lib/scraper/provider';
  */
 
 describe('POST /api/demo-builder/create', () => {
+  it('normalizes a minimal Business Name + Food Type submission', () => {
+    const form = new FormData();
+    form.set('business_name', 'Mario Pizza');
+    form.set('food_type', 'Italian');
+
+    expect(demoCreateSchema.parse(normalizeDemoInput(form))).toMatchObject({
+      name: 'Mario Pizza',
+      foodType: 'Italian',
+      website: undefined,
+      slug: undefined,
+      address: undefined,
+    });
+  });
+
+  it('accepts legacy website and address aliases when supplied', () => {
+    const form = new FormData();
+    form.set('businessName', 'Mario Pizza');
+    form.set('website_url', 'https://mario.example');
+    form.set('address', '1 Main Street');
+
+    expect(demoCreateSchema.parse(normalizeDemoInput(form))).toMatchObject({
+      name: 'Mario Pizza',
+      website: 'https://mario.example',
+      address: '1 Main Street',
+    });
+  });
+
+  it('returns field-level validation information for a malformed website', () => {
+    const form = new FormData();
+    form.set('business_name', 'Mario Pizza');
+    form.set('website_url', 'not-a-url');
+
+    const result = demoCreateSchema.safeParse(normalizeDemoInput(form));
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.path).toEqual(['website']);
+  });
+
   it('allows unauthenticated sales-builder submissions', () => {
     expect('public-demo-builder').toBe('public-demo-builder');
   });

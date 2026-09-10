@@ -255,7 +255,9 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
   return {
     tenant_id: staged.tenantId,
-    slug: staged.tenantId, // Will be replaced by actual slug from tenant
+    slug: staged.slug,
+    // The path preview route resolves by tenant UUID; the human-readable slug
+    // is returned separately for callers that need it.
     preview_url: buildPreviewUrl(staged.tenantId),
     state: 'created',
   };

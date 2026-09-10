@@ -14,8 +14,14 @@ interface DemoResult {
   expires_at: string;
 }
 
+interface DemoError {
+  error?: string;
+  issues?: Array<{ field?: string; message?: string }>;
+}
+
 export function DemoBuilderForm() {
   const [restaurantName, setRestaurantName] = useState('');
+  const [foodType, setFoodType] = useState('');
   const [website, setWebsite] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [menuFile, setMenuFile] = useState<File | null>(null);
@@ -33,6 +39,9 @@ export function DemoBuilderForm() {
     try {
       const formData = new FormData();
       formData.append('name', restaurantName.trim());
+      if (foodType.trim()) {
+        formData.append('food_type', foodType.trim());
+      }
       if (website.trim()) {
         formData.append('website', website.trim());
       }
@@ -48,10 +57,12 @@ export function DemoBuilderForm() {
         body: formData,
       });
 
-      const data = (await response.json()) as DemoResult | { error?: string };
+      const data = (await response.json()) as DemoResult | DemoError;
 
       if (!response.ok) {
-        toast.error((data as { error?: string })?.error || 'Failed to create demo');
+        const failure = data as DemoError;
+        const details = failure.issues?.map((issue) => issue.message).filter(Boolean).join(' ');
+        toast.error(details || failure.error || 'Failed to create demo');
         setBusy(false);
         return;
       }
@@ -126,6 +137,7 @@ export function DemoBuilderForm() {
               onClick={() => {
                 setResult(null);
                 setRestaurantName('');
+                setFoodType('');
                 setWebsite('');
                 setLogoFile(null);
                 setMenuFile(null);
@@ -153,6 +165,20 @@ export function DemoBuilderForm() {
           placeholder="e.g., Mario's Pizza"
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
+          className="mt-3"
+        />
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-neutral-900">Food Type (optional)</h2>
+        <p className="mt-1 text-sm text-neutral-600">Helps us describe the sample storefront.</p>
+
+        <Input
+          autoComplete="off"
+          aria-label="Food type"
+          placeholder="e.g., Italian, seafood, coffee"
+          value={foodType}
+          onChange={(e) => setFoodType(e.target.value)}
           className="mt-3"
         />
       </Card>
