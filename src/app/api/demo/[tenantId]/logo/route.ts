@@ -30,7 +30,9 @@ async function serviceClient() {
 async function authorizePreviewSession(tenantId: string): Promise<{ ok: boolean; status?: number; error?: string }> {
   // Get the preview session token from httpOnly cookie
   const token = (await cookies()).get(PREVIEW_COOKIE)?.value;
+  console.log('[logo-route] checking auth - token present:', !!token);
   if (!token) {
+    console.log('[logo-route] no preview session cookie found');
     return { ok: false, status: 401, error: 'Preview session not found' };
   }
 
@@ -48,10 +50,15 @@ async function authorizePreviewSession(tenantId: string): Promise<{ ok: boolean;
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
 
+  if (error) {
+    console.error('[logo-route] session lookup error:', error.message);
+  }
   if (error || !session) {
+    console.log('[logo-route] session not found or expired for tenant:', tenantId);
     return { ok: false, status: 401, error: 'Invalid or expired session' };
   }
 
+  console.log('[logo-route] session authorized:', session.id);
   return { ok: true };
 }
 

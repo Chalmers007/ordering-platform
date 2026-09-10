@@ -54,9 +54,14 @@ export async function currentPreviewSession(tenantId: string): Promise<PreviewSe
 
 /** Reuses this browser's session, or starts one. */
 export async function ensurePreviewSession(tenantId: string): Promise<PreviewSession> {
+  console.log('[ensurePreviewSession] checking for existing session for tenant:', tenantId);
   const existing = await currentPreviewSession(tenantId);
-  if (existing) return existing;
+  if (existing) {
+    console.log('[ensurePreviewSession] reusing existing session:', existing.id);
+    return existing;
+  }
 
+  console.log('[ensurePreviewSession] creating new session');
   const token = randomBytes(TOKEN_BYTES).toString('base64url');
   const expiresAt = new Date(Date.now() + TTL_DAYS * 86_400_000).toISOString();
 
@@ -66,8 +71,12 @@ export async function ensurePreviewSession(tenantId: string): Promise<PreviewSes
     .insert({ tenant_id: tenantId, token_hash: hash(token), expires_at: expiresAt } as never)
     .select('id, tenant_id, expires_at')
     .single();
-  if (error || !data) throw new Error(`could not start a preview session: ${error?.message}`);
+  if (error || !data) {
+    console.error('[ensurePreviewSession] failed to create session:', error?.message);
+    throw new Error(`could not start a preview session: ${error?.message}`);
+  }
 
+  console.log('[ensurePreviewSession] session created in DB:', data.id, 'setting cookie');
   (await cookies()).set(PREVIEW_COOKIE, token, {
     httpOnly: true,     // never readable by script, so an XSS cannot take the session
     sameSite: 'lax',
@@ -75,6 +84,7 @@ export async function ensurePreviewSession(tenantId: string): Promise<PreviewSes
     path: '/',
     maxAge: TTL_DAYS * 86_400,
   });
+  console.log('[ensurePreviewSession] cookie set successfully');
 
   return { id: data.id as string, tenantId: data.tenant_id as string, expiresAt: data.expires_at as string };
 }

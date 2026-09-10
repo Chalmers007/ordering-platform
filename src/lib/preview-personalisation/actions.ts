@@ -42,7 +42,9 @@ async function previewTenantId(): Promise<string | null> {
 
 export async function uploadPreviewImage(form: FormData): Promise<UploadResult> {
   try {
+    console.log('[uploadPreviewImage] starting upload');
     const tenantId = await previewTenantId();
+    console.log('[uploadPreviewImage] tenantId:', tenantId);
     if (!tenantId) return fail('This storefront is not open for personalisation.');
 
     const kindRaw = String(form.get('kind') ?? '');
@@ -59,7 +61,9 @@ export async function uploadPreviewImage(form: FormData): Promise<UploadResult> 
     const verdict = validateUpload(file.type || null, bytes);
     if (!verdict.ok) return fail(verdict.message);
 
+    console.log('[uploadPreviewImage] calling ensurePreviewSession');
     const session = await ensurePreviewSession(tenantId);
+    console.log('[uploadPreviewImage] session created:', session.id);
     const db = createServiceClient();
 
     const existing = await sessionAssets(session.id);
