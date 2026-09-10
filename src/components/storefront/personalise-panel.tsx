@@ -30,7 +30,7 @@ function Row({
   label: string;
   has: boolean;
   assetId: string | null;
-  inputRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
   pending: boolean;
   onUpload: (kind: Kind, file: File) => void;
   onRemove: (assetId: string) => void;
