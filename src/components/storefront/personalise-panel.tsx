@@ -4,16 +4,6 @@ import { useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { uploadPreviewImage, removePreviewImage } from '@/lib/preview-personalisation/actions';
 
-/**
- * Lets a restaurant put its own logo and banner on a preview before claiming.
- *
- * No account, no email, no card. The images live in this browser's session
- * until the storefront is claimed, and the panel says so — an owner who
- * uploads a logo, closes the laptop and opens the link on a phone would
- * otherwise wonder where it went. Carrying it across devices would need an
- * email or a phone number, which is the thing this deliberately does not ask
- * for.
- */
 type Kind = 'logo' | 'banner';
 
 export function PersonalisePanel({
@@ -29,17 +19,34 @@ export function PersonalisePanel({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const inputs = { logo: useRef<HTMLInputElement>(null), banner: useRef<HTMLInputElement>(null) };
+  const [targetAssetType, setTargetAssetType] = useState<Kind | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const upload = (kind: Kind, file: File) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file || !targetAssetType) return;
+
     const form = new FormData();
-    form.set('kind', kind);
+    form.set('kind', targetAssetType);
     form.set('file', file);
+
     startTransition(async () => {
       const result = await uploadPreviewImage(form);
-      if (!result.ok) toast.error(result.message);
-      else toast.success(kind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+      if (!result.ok) {
+        toast.error(result.message);
+      } else {
+        toast.success(targetAssetType === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+      }
+      setTargetAssetType(null);
     });
+  };
+
+  const handleUploadClick = (kind: Kind) => {
+    setTargetAssetType(kind);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
   };
 
   const remove = (assetId: string) => {
@@ -57,21 +64,10 @@ export function PersonalisePanel({
         <p className="text-xs text-neutral-600">{has ? 'Added to your preview' : 'JPG, PNG or WebP · up to 5MB'}</p>
       </div>
       <div className="flex shrink-0 gap-2">
-        <input
-          ref={inputs[kind]}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(kind, file);
-            e.target.value = '';
-          }}
-        />
         <button
           type="button"
           disabled={pending}
-          onClick={() => inputs[kind].current?.click()}
+          onClick={() => handleUploadClick(kind)}
           className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
         >
           {has ? 'Replace' : 'Upload'}
@@ -92,6 +88,13 @@ export function PersonalisePanel({
 
   return (
     <div className="mt-3 border-t border-amber-200 pt-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
       {!open ? (
         <button
           type="button"
