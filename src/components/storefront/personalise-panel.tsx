@@ -24,7 +24,18 @@ export function PersonalisePanel({
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
-    if (!file || !selectedKind) return;
+    console.log('File input onChange fired', { file, selectedKind, files: event.currentTarget.files });
+
+    if (!file) {
+      console.warn('No file selected');
+      return;
+    }
+
+    if (!selectedKind) {
+      console.warn('No selectedKind set when file was selected', selectedKind);
+      toast.error('Please select a file to replace first');
+      return;
+    }
 
     const form = new FormData();
     form.set('kind', selectedKind);
@@ -32,25 +43,35 @@ export function PersonalisePanel({
 
     startTransition(async () => {
       try {
+        console.log('Starting upload for', selectedKind, 'file:', file.name);
         const result = await uploadPreviewImage(form);
+        console.log('Upload result:', result);
         if (!result.ok) {
           toast.error(result.message);
         } else {
           toast.success(selectedKind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
         }
       } catch (error) {
+        console.error('Upload error:', error);
         toast.error('Upload failed');
       } finally {
         setSelectedKind(null);
+        // Clear input so same file can be selected again
+        event.currentTarget.value = '';
       }
     });
   };
 
   const handleUploadClick = (kind: Kind) => {
+    console.log('Upload button clicked', kind);
     setSelectedKind(kind);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+      console.log('Triggering file input click for', kind);
       fileInputRef.current.click();
+    } else {
+      console.error('File input ref not available');
+      toast.error('Upload component not ready. Please refresh the page.');
     }
   };
 
