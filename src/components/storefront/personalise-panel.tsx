@@ -4,6 +4,8 @@ import { useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { uploadPreviewImage, removePreviewImage } from '@/lib/preview-personalisation/actions';
 
+import { MAX_UPLOAD_BYTES } from '@/lib/preview-personalisation/validate';
+
 type Kind = 'logo' | 'banner';
 
 export function PersonalisePanel({
@@ -39,6 +41,14 @@ export function PersonalisePanel({
     if (!kind) {
       console.warn('No kind set when file was selected', kind);
       toast.error('Please select a file to replace first');
+      return;
+    }
+
+    // Reject before transport: framework/platform limits run before the action.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error('Images must be 4MB or smaller.');
+      selectedKindRef.current = null;
+      event.currentTarget.value = '';
       return;
     }
 
@@ -104,7 +114,7 @@ export function PersonalisePanel({
     <div className="flex items-center justify-between gap-3 border-t border-amber-200 py-3 first:border-t-0">
       <div>
         <p className="text-sm font-medium text-neutral-900">{label}</p>
-        <p className="text-xs text-neutral-600">{has ? 'Added to your preview' : 'JPG, PNG or WebP · up to 5MB'}</p>
+        <p className="text-xs text-neutral-600">{has ? 'Added to your preview' : 'JPG, PNG or WebP · up to 4MB'}</p>
       </div>
       <div className="flex shrink-0 gap-2">
         <button

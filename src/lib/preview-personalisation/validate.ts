@@ -13,7 +13,7 @@
  * it is a document format that executes script, and no restaurant needs one to
  * show us a logo.
  */
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 export const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type AcceptedMime = (typeof ACCEPTED_MIME)[number];
 
@@ -29,7 +29,7 @@ export type Validation =
 
 const MESSAGES: Record<Rejection, string> = {
   empty: 'That file is empty.',
-  too_large: 'Images must be 5MB or smaller.',
+  too_large: 'Images must be 4MB or smaller.',
   unsupported_type: 'Upload a JPG, PNG or WebP image.',
   content_mismatch: 'That file is not the kind of image it claims to be.',
 };
