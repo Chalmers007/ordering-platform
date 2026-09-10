@@ -29,15 +29,32 @@ export type UploadResult =
 
 const fail = (message: string): UploadResult => ({ ok: false, message });
 
-/** Resolves the tenant, and refuses unless this really is an unclaimed preview. */
+/** Resolves the tenant, and refuses unless this really is an unclaimed preview or demo. */
 async function previewTenantId(): Promise<string | null> {
   const tenant = await getTenantContext();
   if (!tenant) return null;
-  // Personalisation exists for storefronts awaiting an owner. On a live
-  // storefront the real settings page is the place to change branding, and
-  // this anonymous path must not be an alternative route into it.
-  if (!(await isPreviewRequest())) return null;
-  return tenant.tenantId;
+
+  // Check if this is a pending_claim preview storefront
+  if (await isPreviewRequest()) {
+    return tenant.tenantId;
+  }
+
+  // Also allow personalization for demo fallback storefronts
+  // Demo storefronts have their own state machine and don't have pending_claim status
+  const db = createServiceClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: fallback } = await (db as any)
+    .from('demo_fallback_state')
+    .select('tenant_id')
+    .eq('tenant_id', tenant.tenantId)
+    .maybeSingle();
+
+  if (fallback) {
+    return tenant.tenantId;
+  }
+
+  // Not a preview or demo storefront
+  return null;
 }
 
 export async function uploadPreviewImage(form: FormData): Promise<UploadResult> {

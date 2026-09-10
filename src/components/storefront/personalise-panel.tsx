@@ -47,10 +47,15 @@ export function PersonalisePanel({
         console.log('Starting upload for', kind, 'file:', file.name);
         const result = await uploadPreviewImage(form);
         console.log('Upload result:', result);
-        if (!result.ok) {
-          toast.error(result.message);
-        } else {
-          toast.success(kind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+        try {
+          if (!result.ok) {
+            toast.error(result.message);
+          } else {
+            toast.success(kind === 'logo' ? 'Logo added to your preview' : 'Banner added to your preview');
+          }
+        } catch (uiError) {
+          console.error('Failed to show upload result:', uiError);
+          // Fail silently if we can't show toast — don't crash the component
         }
       } catch (error) {
         console.error('Upload error:', error);
@@ -58,7 +63,9 @@ export function PersonalisePanel({
       } finally {
         selectedKindRef.current = null;
         // Clear input so same file can be selected again
-        event.currentTarget.value = '';
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     });
   };
