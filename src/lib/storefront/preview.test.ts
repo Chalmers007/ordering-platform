@@ -65,6 +65,15 @@ describe('ordering is refused while unclaimed', () => {
 });
 
 describe('what the preview shows and hides', () => {
+  it('keeps mobile preview controls compact and reopenable', () => {
+    expect(BANNER).toMatch(/h-24 w-full object-cover sm:h-auto/);
+    expect(BANNER).toMatch(/text-lg font-bold leading-tight/);
+    expect(BANNER).toMatch(/min-h-11 items-center justify-center/);
+    const PANEL = readFileSync('src/components/storefront/personalise-panel.tsx', 'utf8');
+    expect(PANEL).toMatch(/Customize Branding/);
+    expect(PANEL).toMatch(/max-h-\[70dvh\]/);
+  });
+
   it('states plainly that it is a preview and takes no orders', () => {
     expect(BANNER).toMatch(/Preview — not yet live/);
     expect(BANNER).toMatch(/This storefront was prepared for your restaurant/);
