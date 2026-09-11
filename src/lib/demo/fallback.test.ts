@@ -95,6 +95,17 @@ describe('Demo Fallback', () => {
       }
       expect(items.every((item) => typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https://'))).toBe(true);
     });
+
+    it('uses dedicated images for Asian fusion dishes', () => {
+      const menu = generateSampleMenu('Asian Fusion');
+      const items = menu.categories.flatMap((category) => category.items);
+      expect(items.find((item) => item.name === 'Gyoza')?.imageUrl).toContain('photo-1496116218417-1a781b1c416c');
+      expect(items.find((item) => item.name === 'Miso Ramen')?.imageUrl).toContain('photo-1569718212165-3a8278d5f624');
+      expect(items.find((item) => item.name === 'Teriyaki Rice Bowl')?.imageUrl).toContain('photo-1546069901-ba9599a7e63c');
+      expect(items.find((item) => item.name === 'Thai Basil Noodles')?.imageUrl).toContain('photo-1559847844-5315695dadae');
+      expect(items.find((item) => item.name === 'Mango Sticky Rice')?.imageUrl).toContain('photo-1621263764928-df1444c5e859');
+      expect(items.find((item) => item.name === 'Mochi Trio')?.imageUrl).toContain('photo-1563805042-7684c019e1cb');
+    });
   });
 
   describe('sample menu structure', () => {
