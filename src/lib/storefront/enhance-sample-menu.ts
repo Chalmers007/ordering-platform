@@ -45,8 +45,8 @@ const MODIFIER_GROUPS: ModifierGroupDef[] = [
     sortOrder: 0,
     modifiers: [
       { name: 'Small', priceDeltaCents: 0, isDefault: true, sortOrder: 0 },
-      { name: 'Medium', priceDeltaCents: 150, isDefault: false, sortOrder: 1 },
-      { name: 'Large', priceDeltaCents: 300, isDefault: false, sortOrder: 2 },
+      { name: 'Medium', priceDeltaCents: 300, isDefault: false, sortOrder: 1 },
+      { name: 'Large', priceDeltaCents: 600, isDefault: false, sortOrder: 2 },
     ],
   },
 
@@ -78,12 +78,32 @@ const MODIFIER_GROUPS: ModifierGroupDef[] = [
     sortOrder: 2,
     modifiers: [
       { name: 'Extra Cheese', priceDeltaCents: 125, isDefault: false, sortOrder: 0 },
-      { name: 'Bacon', priceDeltaCents: 175, isDefault: false, sortOrder: 1 },
-      { name: 'Mushrooms', priceDeltaCents: 75, isDefault: false, sortOrder: 2 },
-      { name: 'Onions', priceDeltaCents: 50, isDefault: false, sortOrder: 3 },
-      { name: 'Peppers', priceDeltaCents: 75, isDefault: false, sortOrder: 4 },
-      { name: 'Olives', priceDeltaCents: 100, isDefault: false, sortOrder: 5 },
+      { name: 'Pepperoni', priceDeltaCents: 200, isDefault: false, sortOrder: 1 },
+      { name: 'Mushrooms', priceDeltaCents: 150, isDefault: false, sortOrder: 2 },
+      { name: 'Onions', priceDeltaCents: 100, isDefault: false, sortOrder: 3 },
+      { name: 'Sausage', priceDeltaCents: 200, isDefault: false, sortOrder: 4 },
     ],
+  },
+
+  {
+    name: 'Sauces', description: 'Choose a dipping sauce', selectionType: 'multiple', isRequired: false,
+    minSelections: 0, maxSelections: 2, sortOrder: 5,
+    modifiers: ['Ranch', 'Blue Cheese', 'Buffalo', 'Honey BBQ', 'Garlic Parmesan', 'Sweet Asian Chili', 'Extra Sauce']
+      .map((name, sortOrder) => ({ name, priceDeltaCents: name === 'Extra Sauce' ? 75 : 0, isDefault: false, sortOrder })),
+  },
+  {
+    name: 'Side Choice', description: 'Choose a side', selectionType: 'single', isRequired: true,
+    minSelections: 1, maxSelections: 1, sortOrder: 6,
+    modifiers: [
+      { name: 'Fries', priceDeltaCents: 0, isDefault: true, sortOrder: 0 },
+      { name: 'Onion Rings', priceDeltaCents: 150, isDefault: false, sortOrder: 1 },
+      { name: 'Side Salad', priceDeltaCents: 200, isDefault: false, sortOrder: 2 },
+    ],
+  },
+  {
+    name: 'Ice Preference', description: 'Choose your ice', selectionType: 'single', isRequired: false,
+    minSelections: 0, maxSelections: 1, sortOrder: 7,
+    modifiers: ['Regular Ice', 'Light Ice', 'No Ice'].map((name, sortOrder) => ({ name, priceDeltaCents: 0, isDefault: sortOrder === 0, sortOrder })),
   },
 
   // Add-ons - multiple choice, optional
@@ -126,9 +146,11 @@ const MODIFIER_GROUPS: ModifierGroupDef[] = [
  */
 const ITEM_MODIFIER_MAPPING: Record<string, string[]> = {
   // Any sandwich-like items get size, sauce, toppings
-  '.*sandwich.*': ['Size', 'Sauce', 'Toppings'],
-  '.*burger.*': ['Size', 'Toppings', 'Add-ons'],
+  '.*sandwich.*': ['Size', 'Sauce', 'Toppings', 'Side Choice', 'Add-ons'],
+  '.*burger.*': ['Size', 'Toppings', 'Side Choice', 'Add-ons'],
   '.*wrap.*': ['Size', 'Sauce', 'Toppings'],
+  '.*(wing|appetizer).*': ['Sauces'],
+  '.*(soda|drink|tea|lemonade|water).*': ['Size', 'Ice Preference'],
 
   // Main courses often have protein choice
   '.*bowl.*': ['Size', 'Protein', 'Sauce', 'Toppings'],

@@ -16,6 +16,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { parseAndStage, type StageInput } from '@/lib/scraper/parse-and-stage';
+import { enhanceSampleMenu } from '@/lib/storefront/enhance-sample-menu';
 
 export type FallbackState =
   | 'created'
@@ -38,6 +39,8 @@ export const FOOD_IMAGES = {
   tacos: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=600&q=80',
   sushi: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=600&q=80',
   pasta: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281288?auto=format&fit=crop&w=600&q=80',
+  wings: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=600&q=80',
+  appetizer: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80',
   dessert: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80',
   drinks: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80',
 } as const;
@@ -251,6 +254,8 @@ function imageKeyForItem(itemName: string, categoryName: string, foodType?: stri
   const text = `${categoryName} ${itemName}`.toLowerCase();
   if (/dessert|sweet|cake|tiramisu|panna cotta|cannoli|churro|brownie|mousse|sorbet|pie/.test(text)) return 'dessert';
   if (/drink|shake|lemonade|tea|soda|juice|cocktail/.test(text)) return 'drinks';
+  if (/wing/.test(text)) return 'wings';
+  if (/appetizer|starter|nacho|fries|bruschetta/.test(text)) return 'appetizer';
   if (/pizza/.test(text)) return 'pizza';
   if (/burger|hamburger|sandwich|fries/.test(text)) return 'burger';
   if (/taco|burrito|enchilada|quesadilla|guacamole|nacho|corn/.test(text)) return 'tacos';
@@ -395,6 +400,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
   // Add modifiers to sample menu items for demo preview (stageInput.sampleMenu indicates a demo)
   if (stageInput.sampleMenu) {
+    await enhanceSampleMenu({ tenantId: staged.tenantId, db });
     await addSampleMenuModifiers(db, staged.tenantId);
   }
 

@@ -207,8 +207,7 @@ async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed:
 
     for (const [i, item] of category.items.entries()) {
       validateMenuItemBeforeDb(item);
-      const { error: itemError } = await db.from('menu_items').upsert(
-        {
+      const itemPayload = {
           tenant_id: tenantId,
           category_id: (cat as { id: string }).id,
           name: item.name,
@@ -223,9 +222,20 @@ async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed:
           // wrong, so the database owns that decision.
           source: sampleMenu ? 'sample' : 'scraped',
           source_url: parsed.sourceUrl,
-        } as never,
+        } as Record<string, unknown>;
+      let { error: itemError } = await db.from('menu_items').upsert(
+        itemPayload as never,
         { onConflict: 'tenant_id,slug' },
       );
+      // Older production schemas may not have image_url yet. Keep demo
+      // generation compatible while the additive migration rolls out.
+      if (itemError && /image_url|column .* does not exist|schema cache/i.test(itemError.message)) {
+        const { image_url: _imageUrl, ...legacyPayload } = itemPayload;
+        ({ error: itemError } = await db.from('menu_items').upsert(
+          legacyPayload as never,
+          { onConflict: 'tenant_id,slug' },
+        ));
+      }
       if (itemError) throw new StagingError(`item "${item.name}": ${itemError.message}`, 'db');
       items += 1;
     }
