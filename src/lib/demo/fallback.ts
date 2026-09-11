@@ -674,42 +674,11 @@ export async function markFallbackClaimed(tenant_id: string): Promise<void> {
  */
 export async function activateFallback(tenant_id: string): Promise<void> {
   const db = serviceClient();
-  const now = new Date().toISOString();
-
-  // Verify fallback exists and is in claimed state
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fallback = await (db as any)
-    .from('demo_fallback_state')
-    .select('state, menu_verified_at')
-    .eq('tenant_id', tenant_id)
-    .single();
-
-  if (fallback.error || !fallback.data) {
-    throw new Error('Fallback not found');
-  }
-
-  if (fallback.data.state !== 'claimed') {
-    throw new Error(`Fallback must be claimed before activation, current state: ${fallback.data.state}`);
-  }
-
-  if (!fallback.data.menu_verified_at) {
-    throw new Error('Menu must be verified before activation');
-  }
-
-  // Transition to activated
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
-    .from('demo_fallback_state')
-    .update({ state: 'activated', activated_at: now, updated_at: now })
-    .eq('tenant_id', tenant_id);
-
-  if (error) {
-    throw new Error(`Could not activate fallback: ${error.message}`);
-  }
-
-  // Update tenant status to active (if not already)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.from('tenants').update({ status: 'active' } as any).eq('id', tenant_id);
+  const { error: approvalError } = await (db as any).rpc('approve_tenant_operator', { p_tenant_id: tenant_id });
+  if (approvalError) throw new Error(`Could not record operator approval: ${approvalError.message}`);
+  const { data: activated, error } = await (db as any).rpc('activate_tenant_if_ready', { p_tenant_id: tenant_id });
+  if (error) throw new Error(`Could not activate fallback: ${error.message}`);
+  if (!activated) throw new Error('Activation requirements are not complete');
 }
 
 /**

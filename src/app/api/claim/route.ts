@@ -80,29 +80,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify payment before creating an owner account. This prevents an unpaid
-  // claim from leaving an orphaned auth user behind.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pkgCheckResult = (await (service as any)
-    .from('package_purchases')
-    .select('status')
-    .eq('tenant_id', target.tenant_id)
-    .maybeSingle()) as { data: { status: string } | null; error: { message?: string } | null };
-
-  if (pkgCheckResult.error) {
-    return NextResponse.json(
-      { error: 'Could not verify payment status' },
-      { status: 500 },
-    );
-  }
-
-  if (pkgCheckResult.data && pkgCheckResult.data.status !== 'confirmed') {
-    return NextResponse.json(
-      { error: 'Payment not confirmed. Please complete your purchase before claiming.' },
-      { status: 402 },
-    );
-  }
-
   // ---- the owner's account -------------------------------------------
   let userId: string;
   let createdUser = false;
@@ -186,6 +163,6 @@ export async function POST(request: NextRequest) {
     // The browser signs in itself after this returns: doing it here would
     // set the session cookie on the storefront host, and the dashboard it
     // is being sent to is a different origin.
-    redirectTo: `${proto}://app.${root}/kds`,
+    redirectTo: `${proto}://app.${root}/setup`,
   });
 }

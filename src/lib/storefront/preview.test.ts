@@ -14,7 +14,7 @@ afterEach(() => { delete process.env.NEXT_PUBLIC_CLAIM_CTA_URL; vi.resetModules(
 
 describe('public preview access', () => {
   it('pending_claim renders the storefront instead of the unavailable page', () => {
-    expect(PROXY).toMatch(/const isPreview = tenant\.status === 'pending_claim';/);
+    expect(PROXY).toMatch(/const isPreview = tenant\.status === 'pending_claim' \|\| tenant\.status === 'pending';/);
     expect(PROXY).toMatch(/if \(!isPreview && tenant\.status !== 'active'\)/);
   });
 

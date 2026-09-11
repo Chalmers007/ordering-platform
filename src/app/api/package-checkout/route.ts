@@ -16,7 +16,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createServiceClient } from '@/lib/supabase/server';
+import { createClientForRequest, createServiceClient } from '@/lib/supabase/server';
 import { getBillingProvider } from '@/lib/payments/provider-factory';
 import { cookies } from 'next/headers';
 import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
@@ -47,26 +47,19 @@ export async function POST(request: NextRequest) {
   const service = createServiceClient();
 
   const token = (await cookies()).get(CLAIM_SESSION_COOKIE)?.value;
-  if (!token) return NextResponse.json({ error: 'This link is not valid or has expired' }, { status: 410 });
-
-  // ---- Verify claim token server-side ----
-  const { data: claimable, error: verifyError } = await service.rpc('verify_claim_token', {
-    p_token: token,
-  });
-
-  if (verifyError || !claimable?.[0]) {
-    return NextResponse.json(
-      { error: 'This link is not valid or has expired' },
-      { status: 410 }
-    );
-  }
-
-  const claimData = claimable[0] as { tenant_id: string };
-  if (claimData.tenant_id !== body.tenant_id) {
-    return NextResponse.json(
-      { error: 'This link belongs to a different restaurant' },
-      { status: 403 }
-    );
+  if (token) {
+    const { data: claimable } = await service.rpc('verify_claim_token', { p_token: token });
+    if (claimable?.[0]?.tenant_id !== body.tenant_id) {
+      return NextResponse.json({ error: 'This link is not valid or belongs to a different restaurant' }, { status: 403 });
+    }
+  } else {
+    const requestClient = await createClientForRequest();
+    const { data: { user } } = await requestClient.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 });
+    const { data: profile } = await service.from('user_profiles').select('tenant_id, role').eq('id', user.id).maybeSingle();
+    if (!profile || profile.tenant_id !== body.tenant_id || profile.role !== 'tenant_owner') {
+      return NextResponse.json({ error: 'Only the restaurant owner can start payment' }, { status: 403 });
+    }
   }
 
   // ---- Get package details ----

@@ -286,7 +286,7 @@ export async function proxy(request: NextRequest) {
       // Viewing changes nothing: the tenant stays pending_claim, this header
       // is the only difference, and ordering is refused three independent ways
       // (see the storefront page).
-      const isPreview = tenant.status === 'pending_claim';
+      const isPreview = tenant.status === 'pending_claim' || tenant.status === 'pending';
       if (isPreview) requestHeaders.set(TENANT_PREVIEW_HEADER, '1');
 
       if (!isPreview && tenant.status !== 'active') {

@@ -129,8 +129,8 @@ export function ClaimForm({
         </Button>
 
         <p className="mt-3 text-xs text-neutral-500">
-          Claiming activates your storefront immediately. You can change the menu, hours and
-          branding straight afterwards.
+          Claiming gives you ownership and opens your setup checklist. Your storefront stays
+          preview-only until payment, setup, and approval are complete.
         </p>
       </form>
       <Toaster position="top-center" richColors />

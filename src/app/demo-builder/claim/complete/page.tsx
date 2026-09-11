@@ -1,8 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { createClientForRequest } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import { ClaimForm } from '@/components/claim/claim-form';
 import { BookingLink } from '@/components/claim/booking-link';
-import { cookies } from 'next/headers';
-import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +25,8 @@ export default async function DemoBuilderClaimCompletePage({
 }) {
   const { purchase_id, payment_confirmed } = await searchParams;
   const claim = purchase_id && UUID.test(purchase_id) ? await verifyPurchase(purchase_id) : null;
+
+  if (claim?.claimed) redirect('/setup');
 
   if (!claim || !payment_confirmed) {
     return (
@@ -105,10 +107,11 @@ async function verifyPurchase(purchaseId: string) {
     .eq('status', 'confirmed')
     .maybeSingle();
   if (!purchase) return null;
-  const token = (await cookies()).get(CLAIM_SESSION_COOKIE)?.value;
-  if (!token) return null;
-  const { data: claimable } = await service.rpc('verify_claim_token', { p_token: token });
-  const claim = claimable?.[0];
-  if (!claim || claim.tenant_id !== purchase.tenant_id) return null;
-  return { name: claim.name };
+  const requestClient = await createClientForRequest();
+  const { data: { user } } = await requestClient.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await service.from('user_profiles').select('tenant_id, role').eq('id', user.id).maybeSingle();
+  if (!profile || profile.tenant_id !== purchase.tenant_id || profile.role !== 'tenant_owner') return null;
+  const { data: tenant } = await service.from('tenants').select('name').eq('id', purchase.tenant_id).maybeSingle();
+  return tenant ? { name: tenant.name, claimed: true } : null;
 }
