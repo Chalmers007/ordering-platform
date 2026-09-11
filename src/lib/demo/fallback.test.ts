@@ -58,6 +58,18 @@ describe('Demo Fallback', () => {
       });
     });
 
+    it('selects cuisine-specific categories for demo food types', () => {
+      expect(generateSampleMenu('Mexican').categories.map((category) => category.name)).toEqual([
+        'Tacos', 'Burritos & Bowls', 'Chips & Sweets',
+      ]);
+      expect(generateSampleMenu('Asian Fusion').categories.map((category) => category.name)).toEqual([
+        'Sushi & Small Plates', 'Ramen & Rice', 'Dessert & Drinks',
+      ]);
+      expect(generateSampleMenu('Pizza').categories[0]?.items[0]?.name).toBe('Margherita');
+      expect(generateSampleMenu('Burger').categories[0]?.name).toBe('Burgers');
+      expect(generateSampleMenu('Italian').categories[0]?.name).toBe('Pasta');
+    });
+
     it('includes descriptions for most items', () => {
       const menu = generateSampleMenu();
       const allItems = menu.categories.flatMap((c) => c.items);

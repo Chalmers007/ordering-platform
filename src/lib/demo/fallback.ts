@@ -56,12 +56,14 @@ function serviceClient(): SupabaseClient<Database> {
  * Sample menu for demo fallback.
  * 3 categories with ~10 items each, realistic restaurant items.
  */
-export function generateSampleMenu(): {
+type SampleMenu = {
   categories: Array<{
     name: string;
     items: Array<{ name: string; description?: string; priceCents: number }>;
   }>;
-} {
+};
+
+function generateGenericSampleMenu(): SampleMenu {
   return {
     categories: [
       {
@@ -113,10 +115,124 @@ export function generateSampleMenu(): {
   };
 }
 
+const FOOD_TYPE_MENUS: Record<string, SampleMenu> = {
+  mexican: {
+    categories: [
+      { name: 'Tacos', items: [
+        { name: 'Carne Asada Tacos', description: 'Grilled steak, onion, cilantro and salsa', priceCents: 1299 },
+        { name: 'Baja Fish Tacos', description: 'Crispy fish, cabbage slaw and crema', priceCents: 1399 },
+        { name: 'Tinga Chicken Tacos', description: 'Smoky pulled chicken with avocado salsa', priceCents: 1199 },
+      ] },
+      { name: 'Burritos & Bowls', items: [
+        { name: 'California Burrito', description: 'Carne asada, fries, cheese and pico', priceCents: 1599 },
+        { name: 'Chicken Fajita Bowl', description: 'Rice, beans, peppers, guacamole and crema', priceCents: 1499 },
+        { name: 'Chile Verde Burrito', description: 'Slow-braised pork, tomatillo sauce and rice', priceCents: 1549 },
+      ] },
+      { name: 'Chips & Sweets', items: [
+        { name: 'Guacamole & Chips', description: 'Fresh avocado, lime, cilantro and tortilla chips', priceCents: 899 },
+        { name: 'Street Corn', description: 'Roasted corn, cotija, crema and chile', priceCents: 699 },
+        { name: 'Churros', description: 'Cinnamon sugar churros with chocolate dip', priceCents: 749 },
+      ] },
+    ],
+  },
+  'asian-fusion': {
+    categories: [
+      { name: 'Sushi & Small Plates', items: [
+        { name: 'Crispy Tuna Roll', description: 'Spicy tuna, cucumber, avocado and crispy rice', priceCents: 1499 },
+        { name: 'Gyoza', description: 'Pan-seared pork dumplings with ginger soy', priceCents: 899 },
+        { name: 'Korean Wings', description: 'Crispy wings glazed with gochujang and sesame', priceCents: 1299 },
+      ] },
+      { name: 'Ramen & Rice', items: [
+        { name: 'Miso Ramen', description: 'Miso broth, noodles, pork belly and soft egg', priceCents: 1699 },
+        { name: 'Teriyaki Rice Bowl', description: 'Grilled chicken, jasmine rice and pickled vegetables', priceCents: 1499 },
+        { name: 'Thai Basil Noodles', description: 'Rice noodles, vegetables, basil and chili', priceCents: 1399 },
+      ] },
+      { name: 'Dessert & Drinks', items: [
+        { name: 'Mochi Trio', description: 'Three seasonal ice cream mochi', priceCents: 699 },
+        { name: 'Mango Sticky Rice', description: 'Sweet coconut rice with fresh mango', priceCents: 799 },
+        { name: 'Yuzu Lemonade', description: 'Bright citrus lemonade with yuzu', priceCents: 499 },
+      ] },
+    ],
+  },
+  pizza: {
+    categories: [
+      { name: 'Pizzas', items: [
+        { name: 'Margherita', description: 'Tomato, fresh mozzarella, basil and olive oil', priceCents: 1599 },
+        { name: 'Pepperoni', description: 'Cup-and-char pepperoni, mozzarella and tomato', priceCents: 1799 },
+        { name: 'Spicy Honey Soppressata', description: 'Soppressata, hot peppers, mozzarella and chili honey', priceCents: 1999 },
+      ] },
+      { name: 'Starters & Sides', items: [
+        { name: 'Garlic Knots', description: 'Oven-baked knots with garlic butter and parmesan', priceCents: 699 },
+        { name: 'Burrata Caprese', description: 'Creamy burrata, tomatoes, basil and balsamic', priceCents: 1199 },
+        { name: 'Wings', description: 'Crispy wings tossed in your choice of sauce', priceCents: 1199 },
+      ] },
+      { name: 'Desserts', items: [
+        { name: 'Tiramisu', description: 'Espresso-soaked ladyfingers with mascarpone', priceCents: 749 },
+        { name: 'Cannoli', description: 'Sweet ricotta, chocolate and pistachio', priceCents: 699 },
+        { name: 'Chocolate Chip Cookie', description: 'Warm skillet cookie with sea salt', priceCents: 599 },
+      ] },
+    ],
+  },
+  burger: {
+    categories: [
+      { name: 'Burgers', items: [
+        { name: 'Classic Cheeseburger', description: 'Griddled beef, American cheese, lettuce and pickles', priceCents: 1399 },
+        { name: 'Bacon BBQ Burger', description: 'Bacon, cheddar, crispy onions and smoky BBQ sauce', priceCents: 1699 },
+        { name: 'Crispy Chicken Sandwich', description: 'Buttermilk fried chicken, slaw and spicy mayo', priceCents: 1499 },
+      ] },
+      { name: 'Fries & Sides', items: [
+        { name: 'Sea Salt Fries', description: 'Crispy hand-cut fries with house seasoning', priceCents: 499 },
+        { name: 'Loaded Cheese Fries', description: 'Fries with cheese sauce, bacon and scallions', priceCents: 899 },
+        { name: 'House Side Salad', description: 'Greens, tomato, cucumber and ranch', priceCents: 699 },
+      ] },
+      { name: 'Shakes & Sweets', items: [
+        { name: 'Vanilla Bean Shake', description: 'Hand-spun vanilla shake with whipped cream', priceCents: 699 },
+        { name: 'Chocolate Shake', description: 'Rich chocolate shake with whipped cream', priceCents: 699 },
+        { name: 'Salted Caramel Brownie', description: 'Warm brownie with salted caramel drizzle', priceCents: 799 },
+      ] },
+    ],
+  },
+  italian: {
+    categories: [
+      { name: 'Pasta', items: [
+        { name: 'Tagliatelle Bolognese', description: 'Fresh pasta with slow-simmered beef ragu', priceCents: 1799 },
+        { name: 'Chicken Parmesan', description: 'Crispy chicken, marinara, mozzarella and spaghetti', priceCents: 1699 },
+        { name: 'Shrimp Scampi', description: 'Garlic shrimp, lemon butter and linguine', priceCents: 1899 },
+      ] },
+      { name: 'Pizza & Antipasti', items: [
+        { name: 'Margherita Pizza', description: 'Tomato, mozzarella, basil and olive oil', priceCents: 1599 },
+        { name: 'Burrata & Prosciutto', description: 'Creamy burrata, prosciutto and grilled bread', priceCents: 1399 },
+        { name: 'Garlic Focaccia', description: 'Warm rosemary focaccia with whipped ricotta', priceCents: 699 },
+      ] },
+      { name: 'Dolci', items: [
+        { name: 'Tiramisu', description: 'Espresso, mascarpone and cocoa', priceCents: 749 },
+        { name: 'Panna Cotta', description: 'Vanilla cream with seasonal berries', priceCents: 699 },
+        { name: 'Cannoli', description: 'Sweet ricotta, chocolate and pistachio', priceCents: 699 },
+      ] },
+    ],
+  },
+};
+
+function menuKey(foodType: string | undefined): string | null {
+  const normalized = (foodType ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (/asian|sushi|ramen|thai|japanese|chinese/.test(normalized)) return 'asian-fusion';
+  if (/mexic|taco|burrito/.test(normalized)) return 'mexican';
+  if (/pizza/.test(normalized)) return 'pizza';
+  if (/burger|hamburger|american/.test(normalized)) return 'burger';
+  if (/italian|pasta/.test(normalized)) return 'italian';
+  return null;
+}
+
+export function generateSampleMenu(foodType?: string): SampleMenu {
+  const key = menuKey(foodType);
+  return key ? FOOD_TYPE_MENUS[key] : generateGenericSampleMenu();
+}
+
 /** Render the fallback menu in the schema.org JSON-LD format the existing
  * structured parser consumes. */
-export function sampleMenuContent(name: string): string {
-  const menu = generateSampleMenu();
+export function sampleMenuContent(name: string, foodType?: string): string {
+  const menu = generateSampleMenu(foodType);
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
@@ -220,7 +336,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
 
   // Create new fallback tenant with sample menu
   const stageInput: StageInput = {
-    content: sampleMenuContent(input.name),
+    content: sampleMenuContent(input.name, input.category),
     sourceUrl: 'sample-menu://fallback-demo',
     nameHint: input.name,
     sampleMenu: true,

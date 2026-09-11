@@ -112,8 +112,8 @@ export function ModifierModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby="modifier-desc">
-        <div className="overflow-y-auto px-5 pb-4 pt-5">
+      <DialogContent aria-describedby="modifier-desc" className="fixed inset-0 z-50 flex max-h-[calc(100dvh-2rem)] flex-col justify-end overflow-hidden p-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[80vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:justify-center">
+        <div className="min-h-0 flex-1 overflow-y-auto scroll-pb-32 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-5">
           <DialogTitle className="pr-8 text-lg font-semibold">{item.name}</DialogTitle>
           <DialogDescription id="modifier-desc" className="mt-1 text-sm text-neutral-600">
             {item.description ?? `${formatCents(item.price_cents, currency)} each`}
@@ -204,7 +204,7 @@ export function ModifierModal({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-4">
+        <div className="sticky bottom-0 flex shrink-0 items-center gap-3 border-t border-neutral-200 bg-white px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-1 rounded-lg border border-neutral-300">
             <Button
               variant="ghost"
