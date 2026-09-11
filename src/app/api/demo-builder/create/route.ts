@@ -19,6 +19,8 @@ import { createFallback } from '@/lib/demo/fallback';
 import { ensurePreviewSession } from '@/lib/preview-personalisation/session';
 import { slugify } from '@/lib/scraper/schema';
 import { demoCreateSchema, normalizeDemoInput } from '@/lib/demo/create-input';
+import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
+import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,6 +87,16 @@ export async function POST(request: NextRequest) {
       name: validated.name,
       category: validated.foodType || 'restaurant',
     });
+
+    if (fallback.claim_token) {
+      (await cookies()).set(CLAIM_SESSION_COOKIE, fallback.claim_token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 14 * 86_400,
+      });
+    }
 
     // Record the name hash so we can find it again
     const nameHash = hashName(validated.name);

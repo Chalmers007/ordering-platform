@@ -214,6 +214,7 @@ async function writeMenu(db: SupabaseClient<Database>, tenantId: string, parsed:
           name: item.name,
           slug: slugify(item.name),
           description: item.description,
+          image_url: item.imageUrl,
           price_cents: item.priceCents,
           calories: item.calories,
           sort_order: i,

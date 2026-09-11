@@ -31,6 +31,17 @@ export interface CreateFallbackInput {
   category?: string;
 }
 
+/** Curated, high-resolution images used only by generated demo menus. */
+export const FOOD_IMAGES = {
+  pizza: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80',
+  burger: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+  tacos: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=600&q=80',
+  sushi: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=600&q=80',
+  pasta: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281288?auto=format&fit=crop&w=600&q=80',
+  dessert: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80',
+  drinks: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80',
+} as const;
+
 export interface FallbackRecord {
   id: string;
   tenant_id: string;
@@ -59,7 +70,7 @@ function serviceClient(): SupabaseClient<Database> {
 type SampleMenu = {
   categories: Array<{
     name: string;
-    items: Array<{ name: string; description?: string; priceCents: number }>;
+    items: Array<{ name: string; description?: string; priceCents: number; imageUrl?: string }>;
   }>;
 };
 
@@ -224,9 +235,45 @@ function menuKey(foodType: string | undefined): string | null {
   return null;
 }
 
+type FoodImageKey = keyof typeof FOOD_IMAGES;
+
+function fallbackImageKey(foodType: string | undefined): FoodImageKey {
+  const key = menuKey(foodType);
+  if (key === 'mexican') return 'tacos';
+  if (key === 'asian-fusion') return 'sushi';
+  if (key === 'pizza') return 'pizza';
+  if (key === 'burger') return 'burger';
+  if (key === 'italian') return 'pasta';
+  return 'pasta';
+}
+
+function imageKeyForItem(itemName: string, categoryName: string, foodType?: string): FoodImageKey {
+  const text = `${categoryName} ${itemName}`.toLowerCase();
+  if (/dessert|sweet|cake|tiramisu|panna cotta|cannoli|churro|brownie|mousse|sorbet|pie/.test(text)) return 'dessert';
+  if (/drink|shake|lemonade|tea|soda|juice|cocktail/.test(text)) return 'drinks';
+  if (/pizza/.test(text)) return 'pizza';
+  if (/burger|hamburger|sandwich|fries/.test(text)) return 'burger';
+  if (/taco|burrito|enchilada|quesadilla|guacamole|nacho|corn/.test(text)) return 'tacos';
+  if (/sushi|roll|ramen|noodle|gyoza|dumpling|miso|teriyaki/.test(text)) return 'sushi';
+  if (/pasta|lasagna|parmesan|scampi|risotto|focaccia|bruschetta|caprese/.test(text)) return 'pasta';
+  return fallbackImageKey(foodType);
+}
+
+function attachFoodImages(menu: SampleMenu, foodType?: string): SampleMenu {
+  return {
+    categories: menu.categories.map((category) => ({
+      ...category,
+      items: category.items.map((item) => ({
+        ...item,
+        imageUrl: FOOD_IMAGES[imageKeyForItem(item.name, category.name, foodType)],
+      })),
+    })),
+  };
+}
+
 export function generateSampleMenu(foodType?: string): SampleMenu {
   const key = menuKey(foodType);
-  return key ? FOOD_TYPE_MENUS[key] : generateGenericSampleMenu();
+  return attachFoodImages(key ? FOOD_TYPE_MENUS[key] : generateGenericSampleMenu(), foodType);
 }
 
 /** Render the fallback menu in the schema.org JSON-LD format the existing
@@ -280,6 +327,7 @@ export function sampleMenuContent(name: string, foodType?: string): string {
           '@type': 'MenuItem',
           name: item.name,
           description: item.description,
+          image: item.imageUrl,
           offers: {
             '@type': 'Offer',
             price: (item.priceCents / 100).toFixed(2),
@@ -303,6 +351,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
   slug: string;
   preview_url: string;
   state: FallbackState;
+  claim_token?: string;
 }> {
   const db = serviceClient();
 
@@ -376,6 +425,7 @@ export async function createFallback(input: CreateFallbackInput): Promise<{
     // is returned separately for callers that need it.
     preview_url: buildPreviewUrl(staged.tenantId),
     state: 'created',
+    claim_token: staged.claimToken,
   };
 }
 

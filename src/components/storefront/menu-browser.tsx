@@ -197,7 +197,8 @@ export function MenuBrowser({
 
           <ul className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {category.menu_items.map((item) => {
-              const image = menuImageUrl(item.image_path);
+              const image = menuImageUrl(item.image_path) ??
+                (item as MenuItemWithModifiers & { image_url?: string | null }).image_url ?? null;
               // In preview, unavailability is our staging flag rather than the
               // kitchen's word, so it is not surfaced and the card stays live.
               const soldOut = !preview && !item.is_available;
@@ -211,14 +212,18 @@ export function MenuBrowser({
                   }`}
                 >
                   {image ? (
-                    <Image
-                      src={image}
-                      alt=""
-                      width={96}
-                      height={96}
-                      className="h-24 w-24 flex-shrink-0 rounded-lg object-cover"
-                      unoptimized
-                    />
+                    <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+                      <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
+                      <Image
+                        src={image}
+                        alt=""
+                        width={96}
+                        height={96}
+                        className="relative h-24 w-24 rounded-lg object-cover opacity-0 transition-opacity duration-300"
+                        onLoad={(event) => event.currentTarget.classList.remove('opacity-0')}
+                        unoptimized
+                      />
+                    </div>
                   ) : (
                     // Most scraped menus carry no item photography, and a flat
                     // grey square on every card reads as a page that failed to

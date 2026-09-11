@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateSampleMenu, sampleMenuContent } from './fallback';
+import { FOOD_IMAGES, generateSampleMenu, sampleMenuContent } from './fallback';
 import { parseStructured } from '@/lib/scraper/provider';
 
 describe('Demo Fallback', () => {
@@ -77,6 +77,15 @@ describe('Demo Fallback', () => {
       // Expect at least 80% of items to have descriptions
       expect(itemsWithDescription.length).toBeGreaterThan(allItems.length * 0.8);
     });
+
+    it('attaches category-aligned image URLs to generated items', () => {
+      const menu = generateSampleMenu('Mexican');
+      expect(menu.categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.tacos);
+      expect(generateSampleMenu('Pizza').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.pizza);
+      expect(generateSampleMenu('Burger').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.burger);
+      expect(generateSampleMenu('Italian').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.pasta);
+      expect(generateSampleMenu('Asian Fusion').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.sushi);
+    });
   });
 
   describe('sample menu structure', () => {
@@ -105,6 +114,16 @@ describe('Demo Fallback', () => {
       const json = JSON.stringify(menu);
       const parsed = JSON.parse(json);
       expect(parsed.categories).toHaveLength(3);
+    });
+
+    it('includes item images in the structured fallback payload', () => {
+      const payload = JSON.parse(sampleMenuContent('Taco House', 'Mexican')) as {
+        '@graph': Array<{ hasMenuItem?: Array<{ image?: string }> }>;
+      };
+      const image = payload['@graph']
+        .filter((section) => section.hasMenuItem?.some((item) => item.image))
+        .flatMap((section) => section.hasMenuItem ?? [])[0]?.image;
+      expect(image).toBe(FOOD_IMAGES.tacos);
     });
   });
 });

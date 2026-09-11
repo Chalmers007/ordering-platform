@@ -27,6 +27,19 @@ export function claimCtaHref(): string {
   return process.env.NEXT_PUBLIC_CLAIM_CTA_URL?.trim() || '/claim';
 }
 
+/** Add safe, non-secret demo context to the onboarding destination. */
+export function activationCtaHref(
+  baseHref: string,
+  context: { demoId: string; businessName: string; foodType?: string | null; ravenProspectId?: string | null },
+): string {
+  const params = new URLSearchParams();
+  params.set('demo_id', context.demoId);
+  params.set('business_name', context.businessName);
+  if (context.foodType?.trim()) params.set('food_type', context.foodType.trim());
+  if (context.ravenProspectId?.trim()) params.set('raven_prospect_id', context.ravenProspectId.trim());
+  return `${baseHref}${baseHref.includes('?') ? '&' : '?'}${params.toString()}`;
+}
+
 /**
  * Where "Book a Walkthrough" goes.
  *

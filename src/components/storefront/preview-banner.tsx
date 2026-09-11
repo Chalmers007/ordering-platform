@@ -36,17 +36,20 @@ export function PreviewBanner({
   restaurantName,
   tagline,
   ctaHref,
+  activationHref,
   walkthroughHref,
   personalise,
 }: {
   restaurantName: string;
   tagline?: string | null;
   ctaHref: string;
+  activationHref?: string;
   walkthroughHref: string;
   /** Absent when the visitor has uploaded nothing yet. */
   personalise: { tenantId?: string; logoUrl?: string; bannerUrl?: string; hasLogo: boolean; hasBanner: boolean; logoAssetId: string | null; bannerAssetId: string | null };
 }) {
   const [images, setImages] = useState<{ logo?: string | null; banner?: string | null }>({});
+  const [activating, setActivating] = useState(false);
   const logoUrl = images.logo === undefined ? personalise.logoUrl : images.logo;
   const bannerUrl = images.banner === undefined ? personalise.bannerUrl : images.banner;
   const personalised = { ...personalise, logoUrl: logoUrl ?? undefined, bannerUrl: bannerUrl ?? undefined };
@@ -77,9 +80,8 @@ export function PreviewBanner({
           </div>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <a href={walkthroughHref} className="hidden rounded-lg px-2.5 py-2 text-xs font-semibold text-white/75 transition hover:bg-white/10 hover:text-white sm:inline-flex">Book Walkthrough</a>
-            <a href={ctaHref} className="inline-flex rounded-lg bg-white px-2.5 py-2 text-xs font-semibold text-neutral-950 transition hover:bg-white/90">
-              <span className="sm:hidden">Activate</span>
-              <span className="hidden sm:inline">Activate My Storefront</span>
+            <a href={activationHref ?? ctaHref} onClick={() => setActivating(true)} className="inline-flex rounded-lg bg-white px-2.5 py-2 text-xs font-semibold text-neutral-950 transition hover:bg-white/90">
+              {activating ? 'Opening…' : <><span className="sm:hidden">Activate</span><span className="hidden sm:inline">Activate My Storefront</span></>}
             </a>
             <PersonalisePanel {...personalised} onImageChange={(kind, url) => setImages((current) => ({ ...current, [kind]: url }))} triggerLabel="Customize" triggerClassName="rounded-lg border border-white/20 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-white/10" />
           </div>
