@@ -45,6 +45,21 @@ export const FOOD_IMAGES = {
   drinks: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80',
 } as const;
 
+/** Dish-specific photography takes precedence over cuisine/category defaults. */
+export const FOOD_ITEM_IMAGES = {
+  'garlic bread': 'https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?auto=format&fit=crop&w=600&q=80',
+  'mozzarella sticks': 'https://images.unsplash.com/photo-1531749668029-2db88e4276c7?auto=format&fit=crop&w=600&q=80',
+  'shrimp tempura': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80',
+  'shrimp scampi': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80',
+  'spring rolls': 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+  nachos: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=600&q=80',
+  pasta: FOOD_IMAGES.pasta,
+  lasagna: FOOD_IMAGES.pasta,
+  'chicken parmesan': FOOD_IMAGES.pasta,
+  'grilled salmon': 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80',
+  'ribeye steak': 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=80',
+} as const;
+
 export interface FallbackRecord {
   id: string;
   tenant_id: string;
@@ -250,18 +265,23 @@ function fallbackImageKey(foodType: string | undefined): FoodImageKey {
   return 'pasta';
 }
 
-function imageKeyForItem(itemName: string, categoryName: string, foodType?: string): FoodImageKey {
-  const text = `${categoryName} ${itemName}`.toLowerCase();
-  if (/dessert|sweet|cake|tiramisu|panna cotta|cannoli|churro|brownie|mousse|sorbet|pie/.test(text)) return 'dessert';
-  if (/drink|shake|lemonade|tea|soda|juice|cocktail/.test(text)) return 'drinks';
-  if (/wing/.test(text)) return 'wings';
-  if (/appetizer|starter|nacho|fries|bruschetta/.test(text)) return 'appetizer';
-  if (/pizza/.test(text)) return 'pizza';
-  if (/burger|hamburger|sandwich|fries/.test(text)) return 'burger';
-  if (/taco|burrito|enchilada|quesadilla|guacamole|nacho|corn/.test(text)) return 'tacos';
-  if (/sushi|roll|ramen|noodle|gyoza|dumpling|miso|teriyaki/.test(text)) return 'sushi';
-  if (/pasta|lasagna|parmesan|scampi|risotto|focaccia|bruschetta|caprese/.test(text)) return 'pasta';
-  return fallbackImageKey(foodType);
+function imageUrlForItem(itemName: string, categoryName: string, foodType?: string): string {
+  const name = itemName.trim().toLowerCase();
+  const specific = Object.entries(FOOD_ITEM_IMAGES).find(([keyword]) => name.includes(keyword));
+  if (specific) return specific[1];
+
+  const text = `${categoryName} ${name}`.toLowerCase();
+  let key: FoodImageKey = fallbackImageKey(foodType);
+  if (/dessert|sweet|cake|tiramisu|panna cotta|cannoli|churro|brownie|mousse|sorbet|pie/.test(text)) key = 'dessert';
+  else if (/drink|shake|lemonade|tea|soda|juice|cocktail/.test(text)) key = 'drinks';
+  else if (/wing/.test(text)) key = 'wings';
+  else if (/appetizer|starter|nacho|fries|bruschetta/.test(text)) key = 'appetizer';
+  else if (/pizza/.test(text)) key = 'pizza';
+  else if (/burger|hamburger|sandwich|fries/.test(text)) key = 'burger';
+  else if (/taco|burrito|enchilada|quesadilla|guacamole|nacho|corn/.test(text)) key = 'tacos';
+  else if (/sushi|roll|ramen|noodle|gyoza|dumpling|miso|teriyaki/.test(text)) key = 'sushi';
+  else if (/pasta|lasagna|parmesan|scampi|risotto|focaccia|bruschetta|caprese/.test(text)) key = 'pasta';
+  return FOOD_IMAGES[key];
 }
 
 function attachFoodImages(menu: SampleMenu, foodType?: string): SampleMenu {
@@ -270,7 +290,7 @@ function attachFoodImages(menu: SampleMenu, foodType?: string): SampleMenu {
       ...category,
       items: category.items.map((item) => ({
         ...item,
-        imageUrl: FOOD_IMAGES[imageKeyForItem(item.name, category.name, foodType)],
+        imageUrl: imageUrlForItem(item.name, category.name, foodType),
       })),
     })),
   };

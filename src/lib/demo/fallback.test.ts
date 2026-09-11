@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FOOD_IMAGES, generateSampleMenu, sampleMenuContent } from './fallback';
+import { FOOD_IMAGES, FOOD_ITEM_IMAGES, generateSampleMenu, sampleMenuContent } from './fallback';
 import { parseStructured } from '@/lib/scraper/provider';
 
 describe('Demo Fallback', () => {
@@ -85,6 +85,15 @@ describe('Demo Fallback', () => {
       expect(generateSampleMenu('Burger').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.burger);
       expect(generateSampleMenu('Italian').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.pasta);
       expect(generateSampleMenu('Asian Fusion').categories[0]?.items[0]?.imageUrl).toBe(FOOD_IMAGES.sushi);
+    });
+
+    it('prioritizes dish-specific image URLs over category defaults', () => {
+      const items = generateSampleMenu().categories.flatMap((category) => category.items);
+      for (const [name, url] of Object.entries(FOOD_ITEM_IMAGES)) {
+        const item = items.find((candidate) => candidate.name.toLowerCase().includes(name));
+        if (item) expect(item.imageUrl).toBe(url);
+      }
+      expect(items.every((item) => typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https://'))).toBe(true);
     });
   });
 
