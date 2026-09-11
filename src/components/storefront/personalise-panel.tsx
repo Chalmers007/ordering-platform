@@ -15,6 +15,8 @@ export function PersonalisePanel({
   hasBanner,
   logoAssetId,
   bannerAssetId,
+  triggerLabel = 'Customize Branding',
+  triggerClassName,
 }: {
   tenantId?: string;
   onImageChange?: (kind: Kind, url: string | null) => void;
@@ -22,6 +24,8 @@ export function PersonalisePanel({
   hasBanner: boolean;
   logoAssetId: string | null;
   bannerAssetId: string | null;
+  triggerLabel?: string;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -169,9 +173,9 @@ export function PersonalisePanel({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => open ? close() : setOpen(true)}
-        className="min-h-11 rounded-md px-2 py-2 text-xs font-semibold text-amber-800 underline decoration-amber-300 underline-offset-4 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-amber-700 sm:text-sm"
+        className={triggerClassName ?? 'min-h-11 rounded-md px-2 py-2 text-xs font-semibold text-amber-800 underline decoration-amber-300 underline-offset-4 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-amber-700 sm:text-sm'}
       >
-        Customize Branding
+        {triggerLabel}
       </button>
       {open ? (
         <section

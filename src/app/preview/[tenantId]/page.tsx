@@ -58,6 +58,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
     <CartProvider tenantId={tenantId} defaultFulfillment={storefront.settings.accepts_delivery ? 'delivery' : 'pickup'}>
       <PreviewBanner
         restaurantName={tenant.name}
+        tagline={storefront.settings.tagline}
         ctaHref={claimCtaHref()}
         walkthroughHref={walkthroughCtaHref()}
         personalise={{
@@ -70,15 +71,17 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
           bannerAssetId: banner?.id ?? null,
         }}
       />
-      <MenuBrowser
-        categories={storefront.categories}
-        currency={storefront.tenant.currency}
-        canOrder={false}
-        preview={true}
-        acceptsDelivery={storefront.settings.accepts_delivery}
-        acceptsPickup={storefront.settings.accepts_pickup}
-        deliveryMinimumCents={storefront.settings.delivery_minimum_cents}
-      />
+      <main id="menu" className="mx-auto w-full max-w-6xl px-4 pb-32 pt-4">
+        <MenuBrowser
+          categories={storefront.categories}
+          currency={storefront.tenant.currency}
+          canOrder={false}
+          preview={true}
+          acceptsDelivery={storefront.settings.accepts_delivery}
+          acceptsPickup={storefront.settings.accepts_pickup}
+          deliveryMinimumCents={storefront.settings.delivery_minimum_cents}
+        />
+      </main>
     </CartProvider>
   );
 }

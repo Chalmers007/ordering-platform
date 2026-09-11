@@ -66,18 +66,17 @@ describe('ordering is refused while unclaimed', () => {
 
 describe('what the preview shows and hides', () => {
   it('keeps mobile preview controls compact and reopenable', () => {
-    expect(BANNER).toMatch(/h-24 w-full object-cover sm:h-auto/);
-    expect(BANNER).toMatch(/text-lg font-bold leading-tight/);
-    expect(BANNER).toMatch(/min-h-11 items-center justify-center/);
+    expect(BANNER).toMatch(/sticky top-0 z-50/);
+    expect(BANNER).toMatch(/h-\[min\(68vw,30rem\)\]/);
+    expect(BANNER).toMatch(/triggerLabel=\"Customize\"/);
     const PANEL = readFileSync('src/components/storefront/personalise-panel.tsx', 'utf8');
     expect(PANEL).toMatch(/Customize Branding/);
     expect(PANEL).toMatch(/max-h-\[70dvh\]/);
   });
 
   it('states plainly that it is a preview and takes no orders', () => {
-    expect(BANNER).toMatch(/Preview — not yet live/);
-    expect(BANNER).toMatch(/This storefront was prepared for your restaurant/);
-    expect(BANNER).toMatch(/Nothing here can take an order or a payment yet/);
+    expect(BANNER).toMatch(/Preview storefront · not yet live/);
+    expect(BANNER).toMatch(/Preview storefront · Fat Man Approved/);
     expect(BANNER).toMatch(/Activate My Storefront/);
   });
 
@@ -164,10 +163,10 @@ describe('a preview looks like a demo, not an outage', () => {
 
   it('shows both calls to action with the agreed wording', () => {
     const banner = readFileSync('src/components/storefront/preview-banner.tsx', 'utf8');
-    expect(banner).toMatch(/Preview — not yet live/);
-    expect(banner).toMatch(/This storefront was prepared for your restaurant\. Explore the menu and see how online\s*\n?\s*ordering could look\./);
+    expect(banner).toMatch(/Preview storefront · not yet live/);
     expect(banner).toMatch(/Activate My Storefront/);
-    expect(banner).toMatch(/Book a Walkthrough/);
+    expect(banner).toMatch(/Book Walkthrough/);
+    expect(banner).toMatch(/Search menu/);
   });
 
   it('falls back to branded artwork rather than a blank hero or a single letter', () => {

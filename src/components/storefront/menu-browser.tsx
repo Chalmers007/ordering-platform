@@ -95,7 +95,7 @@ export function MenuBrowser({
   return (
     <div className="pt-2">
       {/* Fulfilment */}
-      {acceptsDelivery && acceptsPickup ? (
+      {!preview && acceptsDelivery && acceptsPickup ? (
         <div
           role="radiogroup"
           aria-label="Order type"
@@ -119,7 +119,7 @@ export function MenuBrowser({
         </div>
       ) : null}
 
-      {cart.fulfillmentType === 'delivery' && deliveryMinimumCents > 0 ? (
+      {!preview && cart.fulfillmentType === 'delivery' && deliveryMinimumCents > 0 ? (
         <p className="mb-4 text-sm text-neutral-600">
           Delivery minimum {formatCents(deliveryMinimumCents, currency)}
         </p>
@@ -135,7 +135,7 @@ export function MenuBrowser({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search the menu"
+          placeholder="Search menu items..."
           aria-label="Search the menu"
           className="rounded-full pl-9 pr-9"
         />
