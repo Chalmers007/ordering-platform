@@ -28,16 +28,22 @@ export function CreateRestaurantDialog() {
         body: JSON.stringify(formData),
       });
 
-      const body = (await response.json().catch(() => null)) as
-        | { error?: string; tenant?: { name: string; id: string } }
-        | null;
+      const body = (await response.json().catch(() => null)) as any;
 
       if (!response.ok) {
-        toast.error(body?.error ?? 'Failed to create restaurant');
+        const errorMsg = body?.error ?? body?.fieldErrors ? JSON.stringify(body.fieldErrors) : 'Failed to create restaurant';
+        toast.error(errorMsg);
+        console.error('Create restaurant failed:', { status: response.status, body });
         return;
       }
 
-      toast.success(`Created "${body?.tenant?.name}"`);
+      if (!body?.tenant?.id) {
+        toast.error('No restaurant returned from server');
+        console.error('Invalid response structure:', body);
+        return;
+      }
+
+      toast.success(`Created "${body.tenant.name || formData.name}"`);
       setOpen(false);
       setFormData({
         name: '',
