@@ -8,6 +8,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { formatCents } from '@/lib/money';
 import { MenuImport } from './menu-import';
+import { MenuItemPhoto } from './menu-item-photo';
 import {
   createCategory,
   deleteCategory,
@@ -216,6 +217,8 @@ export function MenuManager({
                       <span className="tabular-nums text-neutral-200">
                         {formatCents(item.price_cents)}
                       </span>
+
+                      <MenuItemPhoto itemId={item.id} imagePath={item.image_path} />
 
                       <label className="flex items-center gap-2 text-xs text-neutral-400">
                         <input

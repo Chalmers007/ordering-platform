@@ -36,7 +36,6 @@ const pollutedRow = {
   tech_fee_cents: 100,
   total_cents: 4044,
   currency: 'USD',
-  courier_tracking_url: 'https://track.shipday.com/abc123',
 
   // None of these are part of the response type; they stand in for columns
   // that exist on the row or could be added to it later.
@@ -44,6 +43,7 @@ const pollutedRow = {
   has_external_ref: true,
   provider: 'shipday',
   shipday_api_key: 'sk_live_courier_do_not_leak',
+  courier_tracking_url: 'https://track.shipday.com/abc123',
   courier_photo_url: 'https://api.shipday.com/photos/1.jpg',
   payment_intent_id: 'pi_live_123',
 } as unknown as TrackingRow;
@@ -55,7 +55,6 @@ describe('tracking response shaping', () => {
     const body = toTrackingResponse(pollutedRow);
 
     expect(Object.keys(body).sort()).toEqual([
-      'courier_tracking_url',
       'driver_name',
       'driver_phone',
       'estimated_eta',
@@ -87,18 +86,14 @@ describe('tracking response shaping', () => {
   it('leaks no vendor name, job reference, or credential', () => {
     const body = toTrackingResponse(pollutedRow);
 
-    // courier_tracking_url is the ONE deliberate exception: a
-    // courier-hosted page necessarily carries the courier's domain. It is
-    // excluded here so the guard stays meaningful everywhere else rather
-    // than being deleted the first time it fires.
-    const { courier_tracking_url: _courierUrl, ...rest } = body;
-    const serialised = JSON.stringify(rest).toLowerCase();
+    const serialised = JSON.stringify(body).toLowerCase();
 
     for (const term of VENDOR_TERMS) {
       expect(serialised, `"${term}" must not appear in a client response`).not.toContain(term);
     }
     expect(serialised).not.toContain('shipday_job_98765');
     expect(serialised).not.toContain('sk_live_courier_do_not_leak');
+    expect(serialised).not.toContain('track.shipday.com');
   });
 
   it('carries the order itself, not just where the driver is', () => {

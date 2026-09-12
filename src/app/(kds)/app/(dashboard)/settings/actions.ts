@@ -27,7 +27,8 @@ const HOURS = z.array(
   }),
 );
 
-const schema = z.object({
+const schema = z
+  .object({
   // tenants — owner only
   name: z.string().min(1).max(160).optional(),
   supportEmail: z.string().email().max(254).or(z.literal('')).optional(),
@@ -54,7 +55,18 @@ const schema = z.object({
   // tenant_settings — money, owner only (a column guard trigger refuses staff)
   deliveryFeeCents: z.number().int().min(0).optional(),
   deliveryMinimumCents: z.number().int().min(0).optional(),
-});
+  deliveryCostMode: z.enum(['restaurant', 'customer', 'split']).optional(),
+    deliveryCustomerSharePercent: z.number().int().min(0).max(100).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.deliveryCostMode === 'split' && data.deliveryCustomerSharePercent === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['deliveryCustomerSharePercent'],
+        message: 'Choose the customer share for a split delivery cost',
+      });
+    }
+  });
 
 function messageFor(code: string | undefined, fallback: string): string {
   if (code === '42501') return 'Only the restaurant owner can change that.';
@@ -124,6 +136,13 @@ export async function saveStoreSettings(
     if (data.deliveryFeeCents !== undefined) settingsPatch.delivery_fee_cents = data.deliveryFeeCents;
     if (data.deliveryMinimumCents !== undefined) {
       settingsPatch.delivery_minimum_cents = data.deliveryMinimumCents;
+    }
+    if (data.deliveryCostMode !== undefined) {
+      (settingsPatch as Record<string, unknown>).delivery_cost_mode = data.deliveryCostMode;
+    }
+    if (data.deliveryCustomerSharePercent !== undefined) {
+      (settingsPatch as Record<string, unknown>).delivery_customer_share_percent =
+        data.deliveryCustomerSharePercent;
     }
   }
 

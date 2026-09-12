@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { formatMinutes } from '@/lib/money';
+import { fulfillmentStatus } from '@/lib/kds/fulfillment';
 import type { TenantSettings } from '@/types/database';
 
 /**
@@ -27,7 +28,11 @@ export function KitchenControls({
   tenantId: string;
   settings: Pick<
     TenantSettings,
-    'is_kitchen_paused' | 'kitchen_paused_reason' | 'estimated_prep_time_mins'
+    | 'is_kitchen_paused'
+    | 'kitchen_paused_reason'
+    | 'estimated_prep_time_mins'
+    | 'accepts_pickup'
+    | 'accepts_delivery'
   >;
   onSettingsChange: (settings: TenantSettings) => void;
   connected: boolean;
@@ -95,6 +100,17 @@ export function KitchenControls({
         </div>
 
         <h1 className="text-lg font-semibold">Kitchen</h1>
+
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+            settings.is_kitchen_paused
+              ? 'bg-amber-500/20 text-amber-200'
+              : 'bg-emerald-500/20 text-emerald-200'
+          }`}
+          aria-live="polite"
+        >
+          {settings.is_kitchen_paused ? 'Orders paused' : fulfillmentStatus(settings)}
+        </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Prep time */}

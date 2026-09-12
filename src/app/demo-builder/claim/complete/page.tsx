@@ -26,7 +26,9 @@ export default async function DemoBuilderClaimCompletePage({
   const { purchase_id, payment_confirmed } = await searchParams;
   const claim = purchase_id && UUID.test(purchase_id) ? await verifyPurchase(purchase_id) : null;
 
-  if (claim?.claimed) redirect('/setup');
+  // Claimed owners return to the authenticated dashboard.  `/setup` is not
+  // an owner route and would otherwise turn a verified payment into a 404.
+  if (claim?.claimed) redirect('/app/setup');
 
   if (!claim || !payment_confirmed) {
     return (

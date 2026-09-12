@@ -11,6 +11,7 @@ export default function StaffLoginPage() {
         <StaffLogin
           title="Restaurant dashboard"
           subtitle="Sign in with the account your restaurant was set up with."
+          defaultRedirect="/app/settings"
         />
       </Suspense>
       <Toaster position="top-center" richColors />

@@ -62,7 +62,11 @@ export type TenantUpdate = TableUpdate<'tenants'>;
 export type TenantDomain = TableRow<'tenant_domains'>;
 export type TenantDomainInsert = TableInsert<'tenant_domains'>;
 
-export type TenantSettings = TableRow<'tenant_settings'>;
+export type DeliveryCostMode = 'restaurant' | 'customer' | 'split';
+export type TenantSettings = TableRow<'tenant_settings'> & {
+  delivery_cost_mode: DeliveryCostMode;
+  delivery_customer_share_percent: number;
+};
 export type TenantSettingsUpdate = TableUpdate<'tenant_settings'>;
 
 export type UserProfile = TableRow<'user_profiles'>;
@@ -218,6 +222,10 @@ export type PricedCart = {
   taxCents: number;
   tipCents: number;
   deliveryFeeCents: number;
+  /** The configured delivery fee before its payer allocation. */
+  deliveryFeeTotalCents?: number;
+  deliveryFeeRestaurantCents?: number;
+  deliveryFeeCustomerCents?: number;
   serviceFeeCents: number;
   /** 0 unless `tenant_settings.tech_fee_enabled`. Routed to the platform
    *  account as Stripe's `application_fee_amount`. */

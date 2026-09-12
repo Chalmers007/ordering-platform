@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { getTenantContext } from '@/lib/tenancy/context';
 import { autoDispatch } from '@/lib/dispatch/auto-dispatch';
 import type { Json } from '@/types/database';
+import { isLocalUnpaidRequest } from '@/lib/orders/local-unpaid';
 
 /**
  * POST /api/orders/create
@@ -23,6 +24,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const requestSchema = z.object({
+  // Local acceptance only. Production requests can never opt into this path.
+  test_unpaid: z.boolean().optional().default(false),
   cart: z.object({
     fulfillmentType: z.enum(['delivery', 'pickup']),
     tipCents: z.number().int().nonnegative().max(100_000).default(0),
@@ -175,6 +178,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Order creation failed' }, { status: 500 });
   }
 
+  // The direct RPC historically creates paid orders because it is used by
+  // trusted server flows. For local standalone-order acceptance, explicitly
+  // move this just-created order into the existing unpaid lifecycle. The
+  // host and environment gate make this impossible to request in production.
+  const localUnpaid = isLocalUnpaidRequest(request, body.test_unpaid);
+  if (localUnpaid) {
+    const { error: unpaidError } = await service
+      .from('orders')
+      .update({ status: 'received', payment_status: 'unpaid' })
+      .eq('id', orderId)
+      .eq('tenant_id', tenant.tenantId);
+    if (unpaidError) {
+      return NextResponse.json({ error: 'Could not record unpaid order' }, { status: 500 });
+    }
+  }
+
   // ---- auto-dispatch if configured ---------------------------------
   // Dispatch failures do not fail the order creation — the order is placed
   // and the kitchen still needs it. Dispatch can be retried from the KDS.
@@ -195,5 +214,6 @@ export async function POST(request: NextRequest) {
     trackingToken,
     trackingUrl: `/orders/${trackingToken}`,
     pricedCart,
+    ...(localUnpaid ? { paymentStatus: 'unpaid', status: 'received' } : {}),
   });
 }

@@ -1422,6 +1422,8 @@ export type Database = {
           created_at: string
           default_tip_bps: number
           delivery_fee_cents: number
+          delivery_cost_mode: string
+          delivery_customer_share_percent: number
           delivery_minimum_cents: number
           delivery_radius_meters: number
           description: string | null
@@ -1458,6 +1460,8 @@ export type Database = {
           created_at?: string
           default_tip_bps?: number
           delivery_fee_cents?: number
+          delivery_cost_mode?: string
+          delivery_customer_share_percent?: number
           delivery_minimum_cents?: number
           delivery_radius_meters?: number
           description?: string | null
@@ -1494,6 +1498,8 @@ export type Database = {
           created_at?: string
           default_tip_bps?: number
           delivery_fee_cents?: number
+          delivery_cost_mode?: string
+          delivery_customer_share_percent?: number
           delivery_minimum_cents?: number
           delivery_radius_meters?: number
           description?: string | null
@@ -2311,6 +2317,7 @@ export type Database = {
       order_status:
         | "draft"
         | "pending_payment"
+        | "received"
         | "paid"
         | "confirmed"
         | "preparing"
@@ -2507,6 +2514,7 @@ export const Constants = {
       order_status: [
         "draft",
         "pending_payment",
+        "received",
         "paid",
         "confirmed",
         "preparing",
@@ -2562,4 +2570,3 @@ export const Constants = {
     },
   },
 } as const
-

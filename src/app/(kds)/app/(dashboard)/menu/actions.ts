@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createClientForRequest } from '@/lib/supabase/server';
+import { createClientForRequest, createServiceClient } from '@/lib/supabase/server';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { fail, ok, type ActionResult } from '@/types/database';
 
@@ -455,4 +455,131 @@ export async function confirmMenu(): Promise<ActionResult<void>> {
   if (error) return fail(refused(error.code, error.message), { code: 'unknown' });
   revalidatePath('/menu');
   return ok(undefined);
+}
+
+// ---------------------------------------------------------------------
+// Item photos and modifier authoring
+// ---------------------------------------------------------------------
+
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export async function uploadMenuItemImage(
+  itemId: string,
+  formData: FormData,
+): Promise<ActionResult<{ url: string }>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const file = formData.get('file');
+  if (!(file instanceof File)) return fail('No image provided', { code: 'validation' });
+  if (!IMAGE_TYPES.has(file.type)) return fail('Only JPG, PNG, WebP, and AVIF images are allowed', { code: 'validation' });
+  if (file.size > MAX_ITEM_IMAGE_BYTES) return fail('Image must be smaller than 5MB', { code: 'validation' });
+
+  const db = await createClientForRequest();
+  const { data: item } = await db.from('menu_items').select('id, image_path').eq('id', itemId).eq('tenant_id', staff.tenantId).maybeSingle();
+  if (!item) return fail('Menu item not found', { code: 'not_found' });
+
+  const ext = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
+  const objectPath = `${staff.tenantId}/menu-items/${itemId}-${Date.now()}.${ext}`;
+  const storage = createServiceClient().storage.from('menu-images');
+  const { error: uploadError } = await storage.upload(objectPath, file, { contentType: file.type, upsert: false, cacheControl: '3600' });
+  if (uploadError) return fail('Image upload failed', { code: 'gateway' });
+
+  const { error: updateError } = await db.from('menu_items').update({ image_path: objectPath }).eq('id', itemId).eq('tenant_id', staff.tenantId);
+  if (updateError) {
+    await storage.remove([objectPath]);
+    return fail(updateError.message, { code: 'unknown' });
+  }
+  if (item.image_path) await storage.remove([item.image_path]);
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return fail('Image uploaded but URL could not be generated', { code: 'unknown' });
+  revalidatePath('/menu');
+  return ok({ url: `${base}/storage/v1/object/public/menu-images/${objectPath}` });
+}
+
+export async function removeMenuItemImage(itemId: string): Promise<ActionResult<void>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const db = await createClientForRequest();
+  const { data: item } = await db.from('menu_items').select('image_path').eq('id', itemId).eq('tenant_id', staff.tenantId).maybeSingle();
+  if (!item) return fail('Menu item not found', { code: 'not_found' });
+  const { error } = await db.from('menu_items').update({ image_path: null }).eq('id', itemId).eq('tenant_id', staff.tenantId);
+  if (error) return fail(error.message, { code: 'unknown' });
+  if (item.image_path) await createServiceClient().storage.from('menu-images').remove([item.image_path]);
+  revalidatePath('/menu');
+  return ok(undefined);
+}
+
+const modifierGroupSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+  selectionType: z.enum(['single', 'multiple']),
+  isRequired: z.boolean(),
+  minSelections: z.number().int().min(0).max(50),
+  maxSelections: z.number().int().min(1).max(50).nullable(),
+});
+
+function validModifierGroup(data: z.infer<typeof modifierGroupSchema>): string | null {
+  if (data.isRequired && data.minSelections < 1) return 'Required groups need at least one selection';
+  if (data.maxSelections !== null && data.maxSelections < data.minSelections) return 'Maximum selections cannot be below the minimum';
+  if (data.selectionType === 'single' && data.maxSelections !== null && data.maxSelections !== 1) return 'Single-choice groups allow one option';
+  return null;
+}
+
+export async function saveModifierGroup(input: { id?: string } & z.infer<typeof modifierGroupSchema>): Promise<ActionResult<{ id: string }>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const parsed = modifierGroupSchema.safeParse(input);
+  if (!parsed.success) return fail('Check the modifier group details', { code: 'validation' });
+  const invalid = validModifierGroup(parsed.data);
+  if (invalid) return fail(invalid, { code: 'validation' });
+  const db = await createClientForRequest();
+  const row = { tenant_id: staff.tenantId, name: parsed.data.name, description: parsed.data.description || null, selection_type: parsed.data.selectionType, is_required: parsed.data.isRequired, min_selections: parsed.data.minSelections, max_selections: parsed.data.maxSelections };
+  if (input.id) {
+    const { data, error } = await db.from('menu_modifier_groups').update(row).eq('id', input.id).eq('tenant_id', staff.tenantId).select('id').maybeSingle();
+    if (error || !data) return fail(error?.message ?? 'Modifier group not found', { code: 'unknown' });
+    revalidatePath('/menu'); return ok({ id: data.id });
+  }
+  const { data, error } = await db.from('menu_modifier_groups').insert(row).select('id').single();
+  if (error || !data) return fail(error?.message ?? 'Could not create modifier group', { code: 'unknown' });
+  revalidatePath('/menu'); return ok({ id: data.id });
+}
+
+export async function deleteModifierGroup(id: string): Promise<ActionResult<void>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const db = await createClientForRequest();
+  const { error } = await db.from('menu_modifier_groups').delete().eq('id', id).eq('tenant_id', staff.tenantId);
+  if (error) return fail(error.message, { code: 'unknown' });
+  revalidatePath('/menu'); return ok(undefined);
+}
+
+const modifierSchema = z.object({ name: z.string().trim().min(1).max(120), priceDeltaCents: z.number().int().min(-100000).max(100000), isDefault: z.boolean(), isAvailable: z.boolean() });
+
+export async function saveModifier(input: { id?: string; groupId: string } & z.infer<typeof modifierSchema>): Promise<ActionResult<{ id: string }>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const parsed = modifierSchema.safeParse(input);
+  if (!parsed.success) return fail('Check the option details', { code: 'validation' });
+  const db = await createClientForRequest();
+  const { data: group } = await db.from('menu_modifier_groups').select('id').eq('id', input.groupId).eq('tenant_id', staff.tenantId).maybeSingle();
+  if (!group) return fail('Modifier group not found', { code: 'not_found' });
+  const row = { tenant_id: staff.tenantId, group_id: input.groupId, name: parsed.data.name, price_delta_cents: parsed.data.priceDeltaCents, is_default: parsed.data.isDefault, is_available: parsed.data.isAvailable };
+  if (input.id) {
+    const { data, error } = await db.from('menu_modifiers').update(row).eq('id', input.id).eq('tenant_id', staff.tenantId).eq('group_id', input.groupId).select('id').maybeSingle();
+    if (error || !data) return fail(error?.message ?? 'Option not found', { code: 'unknown' });
+    revalidatePath('/menu'); return ok({ id: data.id });
+  }
+  const { data, error } = await db.from('menu_modifiers').insert(row).select('id').single();
+  if (error || !data) return fail(error?.message ?? 'Could not create option', { code: 'unknown' });
+  revalidatePath('/menu'); return ok({ id: data.id });
+}
+
+export async function deleteModifier(id: string): Promise<ActionResult<void>> {
+  const staff = await resolveStaffTenantId();
+  if (!staff) return fail('No access', { code: 'forbidden' });
+  const db = await createClientForRequest();
+  const { error } = await db.from('menu_modifiers').delete().eq('id', id).eq('tenant_id', staff.tenantId);
+  if (error) return fail(error.message, { code: 'unknown' });
+  revalidatePath('/menu'); return ok(undefined);
 }

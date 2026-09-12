@@ -26,19 +26,15 @@ export function IntegrationsPanel({
   canManage,
   stripe,
   hasOrderWebhook,
-  hasPosCredentials,
   stripeConfigured,
 }: {
   canManage: boolean;
   stripe: StripeState;
   hasOrderWebhook: boolean;
-  hasPosCredentials: boolean;
   stripeConfigured: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [posProvider, setPosProvider] = useState<'none' | 'toast' | 'square' | 'clover'>('none');
-  const [posApiKey, setPosApiKey] = useState('');
 
   function connect() {
     startTransition(async () => {
@@ -69,12 +65,10 @@ export function IntegrationsPanel({
     startTransition(async () => {
       const result = await saveIntegrationSettings({
         orderWebhookUrl: webhookUrl.trim(),
-        posProvider,
-        posApiKey: posApiKey.trim() || undefined,
+        posProvider: 'none',
       });
       if (result.ok) {
         toast.success('Integration settings saved');
-        setPosApiKey('');
       } else toast.error(result.error);
     });
   }
@@ -112,7 +106,9 @@ export function IntegrationsPanel({
                     : 'Onboarding started but not finished — continue to accept payments.'}
                 </p>
               ) : (
-                <p className="text-sm text-neutral-400">Not connected. Checkout is disabled.</p>
+                <p className="text-sm text-neutral-400">
+                  Payment account not connected. Online checkout is disabled.
+                </p>
               )}
             </div>
 
@@ -144,7 +140,7 @@ export function IntegrationsPanel({
             <h2 className="font-semibold text-neutral-100">Order webhook</h2>
             <p className="mt-0.5 text-sm text-neutral-400">
               Every order is POSTed here when it is placed and when a first-time customer
-              orders. Works with GoHighLevel, Zapier, Make, or any endpoint you control.
+              orders. Use an endpoint managed by your team if you need order notifications.
             </p>
 
             <label className="mt-3 block">
@@ -172,59 +168,21 @@ export function IntegrationsPanel({
         </div>
       </section>
 
-      {/* ---- POS ---- */}
+      {/* ---- Point-of-sale connection ---- */}
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
         <h2 className="font-semibold text-neutral-100">Point of sale</h2>
         <p className="mt-0.5 text-sm text-neutral-400">
-          Store credentials for your POS so they are ready when sync ships.
+          Point-of-sale connections are not available yet. Orders can still be managed from the
+          kitchen dashboard.
         </p>
 
         <p className="mt-3 flex items-start gap-2 rounded-lg bg-neutral-800 px-3 py-2 text-sm text-neutral-300">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" aria-hidden />
           <span>
-            <strong className="font-medium">Sync is not live yet.</strong> Credentials saved here
-            are stored securely but nothing reads them — no orders are pushed to your POS today.
-            Use the order webhook above for a working integration.
+            <strong className="font-medium">Connection setup is not available yet.</strong> Use
+            the order notification endpoint above for a connection managed by your team.
           </span>
         </p>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm text-neutral-300">Provider</span>
-            <select
-              className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 text-sm text-neutral-100 disabled:opacity-50"
-              value={posProvider}
-              disabled={!canManage}
-              onChange={(event) =>
-                setPosProvider(event.target.value as 'none' | 'toast' | 'square' | 'clover')
-              }
-            >
-              <option value="none">Not connected</option>
-              <option value="toast">Toast</option>
-              <option value="square">Square</option>
-              <option value="clover">Clover</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-sm text-neutral-300">
-              API key
-              {hasPosCredentials ? (
-                <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-300">
-                  stored
-                </span>
-              ) : null}
-            </span>
-            <Input
-              className={inputClass}
-              type="password"
-              value={posApiKey}
-              disabled={!canManage || posProvider === 'none'}
-              onChange={(event) => setPosApiKey(event.target.value)}
-              placeholder="••••••••"
-            />
-          </label>
-        </div>
       </section>
 
       <div className="sticky bottom-0 -mx-4 border-t border-neutral-800 bg-neutral-950/95 px-4 py-3 backdrop-blur">

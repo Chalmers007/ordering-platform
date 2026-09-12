@@ -83,11 +83,14 @@ export async function refreshCourierLocation(orderId: string): Promise<boolean> 
 
   const { data: delivery } = await service
     .from('deliveries')
-    .select('tenant_id, external_ref, status, location_updated_at')
+    .select('tenant_id, external_ref, provider, status, location_updated_at')
     .eq('order_id', orderId)
     .maybeSingle();
 
   if (!delivery?.external_ref) return false;
+
+  // Uber Direct updates arrive via webhook; do not poll. Only poll Shipday.
+  if (delivery.provider !== 'shipday') return false;
 
   // Terminal states never move again.
   if (['delivered', 'failed', 'cancelled'].includes(delivery.status)) return false;

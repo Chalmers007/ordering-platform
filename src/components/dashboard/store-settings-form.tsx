@@ -87,6 +87,10 @@ export function StoreSettingsForm({
   const [prepMins, setPrepMins] = useState(settings.estimated_prep_time_mins.toString());
   const [deliveryFee, setDeliveryFee] = useState(toDollars(settings.delivery_fee_cents));
   const [minimum, setMinimum] = useState(toDollars(settings.delivery_minimum_cents));
+  const [deliveryCostMode, setDeliveryCostMode] = useState(settings.delivery_cost_mode ?? 'customer');
+  const [customerSharePercent, setCustomerSharePercent] = useState(
+    (settings.delivery_customer_share_percent ?? 100).toString(),
+  );
   const [paused, setPaused] = useState(settings.is_kitchen_paused);
 
   const [hours, setHours] = useState<Hours[]>(() => {
@@ -121,6 +125,13 @@ export function StoreSettingsForm({
         businessHours: hours.filter((h) => h.open && h.close),
         ...(canManage
           ? { deliveryFeeCents: toCents(deliveryFee), deliveryMinimumCents: toCents(minimum) }
+          : {}),
+        ...(canManage
+          ? {
+              deliveryCostMode,
+              deliveryCustomerSharePercent:
+                customerSharePercent.trim() === '' ? undefined : Number(customerSharePercent),
+            }
           : {}),
       });
 
@@ -192,6 +203,31 @@ export function StoreSettingsForm({
           <Field label="Minimum order ($)">
             <Input className={inputClass} inputMode="decimal" value={minimum} disabled={!canManage} onChange={(e) => setMinimum(e.target.value)} />
           </Field>
+          <Field label="Delivery cost">
+            <select
+              className={`${inputClass} h-10 w-full rounded-md border px-3 text-sm`}
+              value={deliveryCostMode}
+              disabled={!canManage}
+              onChange={(e) => setDeliveryCostMode(e.target.value as typeof deliveryCostMode)}
+            >
+              <option value="restaurant">Restaurant covers delivery</option>
+              <option value="customer">Customer pays delivery</option>
+              <option value="split">Split delivery cost</option>
+            </select>
+          </Field>
+          {deliveryCostMode === 'split' ? (
+            <Field label="Customer share (%)">
+              <Input
+                className={inputClass}
+                inputMode="numeric"
+                min={0}
+                max={100}
+                value={customerSharePercent}
+                disabled={!canManage}
+                onChange={(e) => setCustomerSharePercent(e.target.value)}
+              />
+            </Field>
+          ) : null}
         </div>
         {!canManage ? (
           <p className="text-xs text-neutral-500">

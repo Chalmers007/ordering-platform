@@ -7,6 +7,13 @@ export const runtime = 'nodejs';
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
 function fail(code: string, message: string, retryable = false, status = 400) { return json({ error_code: code, error_message: message, retryable }, status); }
 
+function buildPreviewUrl(tenantId: string): string | null {
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
+  if (!root) return null;
+  const protocol = root.startsWith('localhost') ? 'http' : 'https';
+  return `${protocol}://${root}/preview/${tenantId}`;
+}
+
 export async function POST(request: NextRequest) {
   if (request.headers.get('origin') || request.headers.get('referer') || request.headers.get('cookie')) return fail('browser_forbidden', 'server-to-server requests only', false, 403);
   const source = request.headers.get('x-vardr-source'); const timestamp = request.headers.get('x-vardr-timestamp'); const nonce = request.headers.get('x-vardr-nonce'); const keyId = request.headers.get('x-vardr-key-id'); const signature = request.headers.get('x-vardr-signature');
@@ -87,7 +94,26 @@ export async function POST(request: NextRequest) {
   try {
     const staged = await parseAndStage({ content: p.menu_content!, sourceUrl: p.menu_source_url!, nameHint: p.normalized_business_name, sampleMenu: p.sample_menu });
     const claimUrl = buildClaimUrl(staged.slug, staged.claimToken);
-    const { data: updated } = await db.from('raven_provisioning_requests').update({ provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl, retryable: false, updated_at: now.toISOString() } as never).eq('id', row.id).select('*').single();
+    // parseAndStage issues a 14-day claim token by default. Persist the
+    // corresponding safe operator metadata alongside the durable success so
+    // retries and the downstream handoff can identify the exact preview
+    // without staging a second tenant.
+    const previewUrl = buildPreviewUrl(staged.tenantId);
+    const expiresAt = new Date(now.getTime() + 14 * 86_400_000).toISOString();
+    const successPatch = {
+      provisioning_status: 'succeeded',
+      tenant_id: staged.tenantId,
+      preview_id: staged.tenantId,
+      preview_url: previewUrl,
+      claim_url: claimUrl,
+      expires_at: expiresAt,
+      retryable: false,
+      last_error: null,
+      error_code: null,
+      next_retry_at: null,
+      updated_at: now.toISOString(),
+    };
+    const { data: updated } = await db.from('raven_provisioning_requests').update(successPatch as never).eq('id', row.id).select('*').single();
     return json(toResponse(updated ?? { ...row, provisioning_status: 'succeeded', tenant_id: staged.tenantId, claim_url: claimUrl }));
   } catch (e) {
     const retryable = !(e instanceof StagingError && ['no_menu', 'unparseable', 'invalid', 'conflict'].includes(e.reason));

@@ -19,6 +19,25 @@ interface DemoError {
   issues?: Array<{ field?: string; message?: string }>;
 }
 
+async function uploadOptionalFile(tenantId: string, kind: 'logo' | 'menu', file: File): Promise<string | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`/api/demo/${tenantId}/${kind}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (response.ok) return null;
+
+  let message = `Failed to upload ${kind}`;
+  try {
+    const data = (await response.json()) as { error?: string };
+    if (data.error) message = data.error;
+  } catch {
+    // Keep a useful fallback when a proxy returns a non-JSON error page.
+  }
+  return message;
+}
+
 export function DemoBuilderForm() {
   const [restaurantName, setRestaurantName] = useState('');
   const [foodType, setFoodType] = useState('');
@@ -27,6 +46,7 @@ export function DemoBuilderForm() {
   const [menuFile, setMenuFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<DemoResult | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const menuInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,8 +87,23 @@ export function DemoBuilderForm() {
         return;
       }
 
-      setResult(data as DemoResult);
-      toast.success('Demo created successfully!');
+      const created = data as DemoResult;
+      const errors: string[] = [];
+      if (logoFile) {
+        const error = await uploadOptionalFile(created.tenant_id, 'logo', logoFile);
+        if (error) errors.push(`Logo: ${error}`);
+      }
+      if (menuFile) {
+        const error = await uploadOptionalFile(created.tenant_id, 'menu', menuFile);
+        if (error) errors.push(`Menu: ${error}`);
+      }
+      setUploadErrors(errors);
+      setResult(created);
+      if (errors.length > 0) {
+        toast.error(`Demo created, but ${errors.length === 1 ? 'an upload needs attention' : 'uploads need attention'}.`);
+      } else {
+        toast.success('Demo created successfully!');
+      }
     } catch (err) {
       toast.error('Something went wrong. Please try again.');
       console.error(err);
@@ -113,6 +148,15 @@ export function DemoBuilderForm() {
               </p>
             </div>
 
+            {uploadErrors.length > 0 && (
+              <div role="alert" className="rounded bg-amber-100 px-3 py-2 text-sm text-amber-900">
+                <p className="font-medium">Some uploads need attention</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {uploadErrors.map((error) => <li key={error}>{error}</li>)}
+                </ul>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-medium text-green-700">Session expires</label>
               <p className="mt-1 text-xs text-green-800">
@@ -141,6 +185,7 @@ export function DemoBuilderForm() {
                 setWebsite('');
                 setLogoFile(null);
                 setMenuFile(null);
+                setUploadErrors([]);
               }}
               className="flex-1 rounded-lg bg-white px-4 py-2 text-sm font-medium text-green-600 ring-1 ring-green-200 hover:bg-green-50"
             >

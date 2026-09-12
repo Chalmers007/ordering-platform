@@ -13,6 +13,7 @@ export default function AdminLoginPage() {
         <StaffLogin
           title="Platform console"
           subtitle="Sign in with your platform administrator account."
+          defaultRedirect="/admin"
         />
       </Suspense>
       <Toaster position="top-center" richColors />

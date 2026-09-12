@@ -8,7 +8,7 @@ import { BOARD_STATUSES, belongsToTenant, isOnBoard } from './board';
 const ORDER_SELECT = `
   *,
   order_items ( *, order_item_modifiers ( * ) ),
-  deliveries ( * ),
+  deliveries ( id, order_id, tenant_id, status, updated_at ),
   order_status_events ( * )
 `;
 

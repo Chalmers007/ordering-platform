@@ -157,12 +157,15 @@ export async function POST(request: NextRequest) {
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
   const proto = request.headers.get('x-forwarded-proto') ?? (root.startsWith('localhost') ? 'http' : 'https');
+  // Supabase auth cookies are host-scoped. Keep the owner on the claiming
+  // tenant host so the freshly signed-in session reaches the dashboard.
+  const ownerHost = request.headers.get('x-hostname') ?? request.headers.get('host') ?? `app.${root}`;
 
   return NextResponse.json({
     tenant: { id: claimed.id, name: claimed.name, slug: claimed.slug },
     // The browser signs in itself after this returns: doing it here would
     // set the session cookie on the storefront host, and the dashboard it
     // is being sent to is a different origin.
-    redirectTo: `${proto}://app.${root}/setup`,
+    redirectTo: `${proto}://${ownerHost}/app/setup`,
   });
 }

@@ -293,8 +293,21 @@ export function CheckoutForm({
       {priced ? (
         <dl className="rounded-xl border border-neutral-200 bg-white p-4 text-sm">
           <Row label="Subtotal" value={formatCents(priced.subtotalCents, currency)} />
-          {priced.deliveryFeeCents > 0 ? (
-            <Row label="Delivery" value={formatCents(priced.deliveryFeeCents, currency)} />
+          {(priced.deliveryFeeTotalCents ?? priced.deliveryFeeCents) > 0 ? (
+            <>
+              <Row
+                label="Delivery fee"
+                value={formatCents(priced.deliveryFeeTotalCents ?? priced.deliveryFeeCents, currency)}
+              />
+              <Row
+                label="Restaurant covers"
+                value={formatCents(priced.deliveryFeeRestaurantCents ?? 0, currency)}
+              />
+              <Row
+                label="Your delivery share"
+                value={formatCents(priced.deliveryFeeCustomerCents ?? priced.deliveryFeeCents, currency)}
+              />
+            </>
           ) : null}
           {priced.serviceFeeCents > 0 ? (
             <Row label="Service fee" value={formatCents(priced.serviceFeeCents, currency)} />

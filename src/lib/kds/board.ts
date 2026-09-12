@@ -8,7 +8,7 @@ import type { OrderStatus, OrderWithDetails } from '@/types/database';
  * tested without rendering anything or opening a socket.
  */
 
-export type KdsColumnId = 'received' | 'preparing' | 'ready';
+export type KdsColumnId = 'received' | 'preparing' | 'ready' | 'delivery';
 
 export type KdsColumnDef = {
   id: KdsColumnId;
@@ -20,9 +20,10 @@ export const KDS_COLUMNS: readonly KdsColumnDef[] = [
   // 'paid' is money taken but the kitchen has not accepted yet; 'confirmed'
   // is accepted but not started. Both are "new work" to an expediter, so
   // they share a column rather than splitting attention.
-  { id: 'received', title: 'Received', statuses: ['paid', 'confirmed'] },
+  { id: 'received', title: 'Received', statuses: ['received', 'paid', 'confirmed'] },
   { id: 'preparing', title: 'Preparing', statuses: ['preparing'] },
   { id: 'ready', title: 'Ready', statuses: ['ready'] },
+  { id: 'delivery', title: 'Out for delivery', statuses: ['out_for_delivery'] },
 ] as const;
 
 /** Statuses that belong on the board at all. An order that is out for
@@ -68,7 +69,9 @@ export function primaryActionFor(order: {
   fulfillment_type: 'delivery' | 'pickup';
 }): BoardAction | null {
   switch (order.status) {
+    case 'received':
     case 'paid':
+      return { to: 'confirmed', label: 'Accept order', tone: 'primary' };
     case 'confirmed':
       return { to: 'preparing', label: 'Start preparing', tone: 'primary' };
     case 'preparing':
@@ -77,6 +80,8 @@ export function primaryActionFor(order: {
       return order.fulfillment_type === 'delivery'
         ? { to: 'out_for_delivery', label: 'Hand to driver', tone: 'primary' }
         : { to: 'completed', label: 'Picked up', tone: 'primary' };
+    case 'out_for_delivery':
+      return { to: 'completed', label: 'Mark delivered', tone: 'primary' };
     default:
       return null;
   }
@@ -89,7 +94,7 @@ export function canCancel(status: OrderStatus): boolean {
 export type KdsBoardState = Record<KdsColumnId, OrderWithDetails[]>;
 
 export function emptyBoard(): KdsBoardState {
-  return { received: [], preparing: [], ready: [] };
+  return { received: [], preparing: [], ready: [], delivery: [] };
 }
 
 /**

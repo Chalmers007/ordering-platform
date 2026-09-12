@@ -6,7 +6,9 @@ import type { ActionResult } from '@/types/database';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const BUCKET = 'branding';
+// Keep owner branding uploads on the bucket provisioned by the storage
+// migration.  The former `branding` name was never created locally.
+const BUCKET = 'brand-assets';
 
 /**
  * Upload a branding image (logo or hero banner) to tenant-isolated storage.

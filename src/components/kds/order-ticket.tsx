@@ -3,6 +3,7 @@
 import { Bike, Clock, Printer, ShoppingBag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { primaryActionFor, urgencyFor, waitingMinutes } from '@/lib/kds/board';
+import { deliveryDisplay } from '@/lib/kds/delivery-display';
 import type { OrderWithDetails } from '@/types/database';
 
 /**
@@ -19,6 +20,7 @@ export function OrderTicket({
   busy,
   onAdvance,
   onCancel,
+  onPrepTime,
   onPrint,
 }: {
   order: OrderWithDetails;
@@ -26,11 +28,13 @@ export function OrderTicket({
   busy: boolean;
   onAdvance: (order: OrderWithDetails, to: string) => void;
   onCancel: (order: OrderWithDetails) => void;
+  onPrepTime: (order: OrderWithDetails) => void;
   onPrint: (order: OrderWithDetails) => void;
 }) {
   const action = primaryActionFor(order);
   const urgency = urgencyFor(order, now);
   const waited = waitingMinutes(order, now);
+  const delivery = order.fulfillment_type === 'delivery' ? deliveryDisplay(order.deliveries) : null;
 
   const edge =
     urgency === 'late'
@@ -82,6 +86,22 @@ export function OrderTicket({
         </div>
       </header>
 
+      <div className="border-b border-neutral-700/60 px-3 py-2 text-sm">
+        {delivery ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold text-sky-200">Delivery: {delivery.label}</span>
+            {delivery.detail ? <span className="text-neutral-300">{delivery.detail}</span> : null}
+            {order.delivery_address_line1 ? (
+              <span className="w-full text-neutral-300">
+                {order.delivery_address_line1}, {order.delivery_city}, {order.delivery_region} {order.delivery_postal_code}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <span className="font-semibold text-violet-200">Pickup order</span>
+        )}
+      </div>
+
       <ul className="divide-y divide-neutral-700/60 px-3 py-2">
         {order.order_items.map((item) => (
           <li key={item.id} className="py-2">
@@ -110,7 +130,7 @@ export function OrderTicket({
         </p>
       ) : null}
 
-      <footer className="flex items-center gap-2 border-t border-neutral-700 px-3 py-2.5">
+      <footer className="flex flex-wrap items-center gap-2 border-t border-neutral-700 px-3 py-2.5">
         {action ? (
           <Button
             className="h-12 flex-1 text-base"
@@ -124,6 +144,16 @@ export function OrderTicket({
 
         <Button
           variant="ghost"
+          className="h-12 px-3 text-sm text-neutral-300 hover:bg-neutral-700"
+          aria-label={`Set prep time for order ${order.order_number}`}
+          onClick={() => onPrepTime(order)}
+          disabled={busy}
+        >
+          Set prep time
+        </Button>
+
+        <Button
+          variant="ghost"
           size="icon"
           className="h-12 w-12 text-neutral-300 hover:bg-neutral-700"
           aria-label={`Print ticket for order ${order.order_number}`}
@@ -134,12 +164,12 @@ export function OrderTicket({
 
         <Button
           variant="ghost"
-          size="icon"
-          className="h-12 w-12 text-neutral-400 hover:bg-red-900/40 hover:text-red-300"
-          aria-label={`Cancel order ${order.order_number}`}
+          className="h-12 px-3 text-neutral-400 hover:bg-red-900/40 hover:text-red-300"
+          aria-label={`${order.status === 'paid' || order.status === 'confirmed' ? 'Reject' : 'Cancel'} order ${order.order_number}`}
           onClick={() => onCancel(order)}
         >
           <X className="h-5 w-5" />
+          <span>{order.status === 'paid' || order.status === 'confirmed' ? 'Decline' : 'Cancel'}</span>
         </Button>
       </footer>
     </article>

@@ -14,6 +14,8 @@ export function SetupChecklist({
   menuReady,
   ownerApproved,
   operatorApproved,
+  operatorDecision,
+  operatorReason,
   canManage,
 }: {
   tenantId: string;
@@ -24,14 +26,16 @@ export function SetupChecklist({
   menuReady: boolean;
   ownerApproved: boolean;
   operatorApproved: boolean;
+  operatorDecision: 'pending' | 'approved' | 'rejected';
+  operatorReason: string | null;
   canManage: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const items = [
-    ['Business details', businessDetailsComplete, '/settings'],
-    ['Logo', logoPresent, '/settings'],
-    ['Banner', bannerPresent, '/settings'],
-    ['Menu uploaded and saved', menuReady, '/menu'],
+    ['Business details', businessDetailsComplete, '/app/settings'],
+    ['Logo', logoPresent, '/app/settings'],
+    ['Banner', bannerPresent, '/app/settings'],
+    ['Menu uploaded and saved', menuReady, '/app/menu'],
     ['Payment confirmed', paymentConfirmed, null],
     ['Owner approval', ownerApproved, null],
     ['Vardr approval', operatorApproved, null],
@@ -65,6 +69,13 @@ export function SetupChecklist({
         </button>
       ) : null}
       <p className="mt-3 text-xs text-neutral-600">Tenant: {tenantId}. Ordering stays disabled until Vardr approval activates it.</p>
+      <div className="mt-4 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm">
+        <p className="font-medium">Review status</p>
+        <p className="mt-1 text-neutral-700">
+          {operatorDecision === 'approved' ? 'Approved by Vardr and awaiting final activation checks.' : operatorDecision === 'rejected' ? 'Needs changes before Vardr can approve setup.' : 'Awaiting Vardr review.'}
+        </p>
+        {operatorDecision === 'rejected' && operatorReason ? <p className="mt-1 text-xs text-red-700">Reason: {operatorReason}</p> : null}
+      </div>
     </section>
   );
 }

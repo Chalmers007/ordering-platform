@@ -16,14 +16,14 @@ export default async function SetupPage() {
     db.from('tenant_settings').select('logo_url, cover_image_url').eq('tenant_id', staff.tenantId).maybeSingle(),
     db.from('menu_items').select('id', { count: 'exact', head: true }).eq('tenant_id', staff.tenantId).eq('source', 'owner'),
     (service as any).from('package_purchases').select('status').eq('tenant_id', staff.tenantId).maybeSingle(),
-    (db as any).from('tenant_activation_requirements').select('owner_approved_at, operator_approved_at').eq('tenant_id', staff.tenantId).maybeSingle(),
+    (db as any).from('tenant_activation_requirements').select('owner_approved_at, operator_approved_at, operator_decision, operator_reason').eq('tenant_id', staff.tenantId).maybeSingle(),
   ]);
   if (!tenant || !settings) notFound();
   const details = Boolean(tenant.support_email && tenant.support_phone);
   const payment = purchase?.status === 'confirmed';
   return (
     <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6">
-      <SetupChecklist tenantId={staff.tenantId} paymentConfirmed={payment} businessDetailsComplete={details} logoPresent={Boolean(settings.logo_url)} bannerPresent={Boolean(settings.cover_image_url)} menuReady={(ownerItems ?? 0) > 0} ownerApproved={Boolean(requirements?.owner_approved_at)} operatorApproved={Boolean(requirements?.operator_approved_at)} canManage={staff.canManage} />
+      <SetupChecklist tenantId={staff.tenantId} paymentConfirmed={payment} businessDetailsComplete={details} logoPresent={Boolean(settings.logo_url)} bannerPresent={Boolean(settings.cover_image_url)} menuReady={(ownerItems ?? 0) > 0} ownerApproved={Boolean(requirements?.owner_approved_at)} operatorApproved={Boolean(requirements?.operator_approved_at)} operatorDecision={requirements?.operator_decision ?? 'pending'} operatorReason={requirements?.operator_reason ?? null} canManage={staff.canManage} />
       {!payment ? <PackageSelector tenantId={staff.tenantId} /> : null}
     </main>
   );

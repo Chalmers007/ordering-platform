@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { OrderProgress } from './order-progress';
 import { LiveStatus } from './live-status';
@@ -166,23 +166,6 @@ export function TrackingView({
         <p className="rounded-xl bg-neutral-100 px-4 py-3 text-sm text-neutral-600">
           Your order is on its way. The driver&apos;s location will appear here shortly.
         </p>
-      ) : null}
-
-      {/*
-        A courier-hosted page is the one place the dispatch provider becomes
-        visible to a customer, so it is a plain secondary link rather than
-        the primary way to follow the order — the map above is ours.
-      */}
-      {tracking.courier_tracking_url && !settled ? (
-        <a
-          href={tracking.courier_tracking_url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-600 underline underline-offset-2"
-        >
-          Track with the courier
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-        </a>
       ) : null}
 
       {/* ---- what they ordered ---- */}

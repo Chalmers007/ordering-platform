@@ -8,6 +8,8 @@ import { useChime } from '@/lib/kds/use-chime';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { loadPrinterConfig, printJob, savePrinterConfig } from '@/lib/hardware/printer';
 import { renderTicket } from '@/lib/hardware/ticket';
+import { parsePrepTime, promisedAtFromNow } from '@/lib/kds/prep-time';
+import { declineFeedback, transitionFeedback } from '@/lib/kds/action-feedback';
 import { KitchenControls } from './kitchen-controls';
 import { OrderTicket } from './order-ticket';
 import { PrinterSettings } from './printer-settings';
@@ -114,16 +116,25 @@ export function KdsBoard({
     setBusyOrderId(order.id);
     const supabase = getSupabaseBrowserClient();
 
-    const { error: rpcError } = await supabase.rpc('advance_order_status', {
-      p_order_id: order.id,
-      p_to_status: to as OrderStatus,
-    });
+    let rpcError: { message: string } | null = null;
+    if (order.status === 'out_for_delivery' && to === 'completed') {
+      const response = await fetch(`/api/orders/${order.id}/complete`, { method: 'POST' });
+      if (!response.ok) rpcError = { message: ((await response.json().catch(() => null)) as { error?: string } | null)?.error ?? 'Could not complete delivery' };
+    } else {
+      const result = await supabase.rpc('advance_order_status', {
+        p_order_id: order.id,
+        p_to_status: to as OrderStatus,
+      });
+      rpcError = result.error;
+    }
 
     if (rpcError) {
       setBusyOrderId(null);
       toast.error(rpcError.message);
       return;
     }
+
+    toast.success(transitionFeedback(to as OrderStatus));
 
     // Book the courier as the food starts, not when it is finished, so a
     // driver is on the way while it cooks. Deliberately not fatal: the
@@ -149,7 +160,8 @@ export function KdsBoard({
   }
 
   async function cancel(order: OrderWithDetails) {
-    const reason = window.prompt(`Cancel order ${order.order_number}? Reason:`);
+    const verb = order.status === 'paid' || order.status === 'confirmed' ? 'Reject' : 'Cancel';
+    const reason = window.prompt(`${verb} order ${order.order_number}? Reason:`);
     if (reason === null) return;
 
     setBusyOrderId(order.id);
@@ -162,6 +174,32 @@ export function KdsBoard({
 
     setBusyOrderId(null);
     if (rpcError) toast.error(rpcError.message);
+    else toast.success(declineFeedback(order.status));
+  }
+
+  async function setPrepTime(order: OrderWithDetails) {
+    const value = window.prompt(
+      `Prep time for order ${order.order_number} (0–240 minutes):`,
+      order.prep_time_mins?.toString() ?? settings.estimated_prep_time_mins.toString(),
+    );
+    if (value === null) return;
+
+    const minutes = parsePrepTime(value);
+    if (minutes === null) {
+      toast.error('Enter a whole number from 0 to 240 minutes');
+      return;
+    }
+
+    setBusyOrderId(order.id);
+    const supabase = getSupabaseBrowserClient();
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({ prep_time_mins: minutes, promised_at: promisedAtFromNow(minutes) })
+      .eq('id', order.id)
+      .eq('tenant_id', tenantId);
+
+    setBusyOrderId(null);
+    if (updateError) toast.error(updateError.message);
   }
 
   return (
@@ -223,6 +261,7 @@ export function KdsBoard({
                       busy={busyOrderId === order.id}
                       onAdvance={advance}
                       onCancel={cancel}
+                      onPrepTime={setPrepTime}
                       onPrint={(target) => void printTicket(target)}
                     />
                   ))

@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { recordMenuUpload } from '@/lib/demo/fallback';
 import { parseRestaurant } from '@/lib/scraper/parse-and-stage';
+import { validateMenuFile } from '@/lib/demo/validate-input-files';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -134,6 +135,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       if (!file || !(file instanceof File)) {
         return NextResponse.json({ error: 'File is required' }, { status: 400 });
+      }
+      const fileCheck = validateMenuFile(file);
+      if (!fileCheck.ok) {
+        return NextResponse.json({ error: fileCheck.message }, { status: 400 });
       }
 
       const content = await file.text();

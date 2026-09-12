@@ -46,6 +46,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <Link className="text-neutral-600 hover:text-neutral-900" href="/">
               Overview
             </Link>
+            <Link className="text-neutral-600 hover:text-neutral-900" href="/admin/reviews">
+              Setup review
+            </Link>
             <Link className="text-neutral-600 hover:text-neutral-900" href="/audit">
               Audit log
             </Link>

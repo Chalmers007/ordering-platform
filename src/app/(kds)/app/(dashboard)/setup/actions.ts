@@ -10,6 +10,6 @@ export async function approveSetup(): Promise<{ ok: boolean; error?: string }> {
   const db = await createClientForRequest();
   const { error } = await (db as any).rpc('approve_tenant_setup', { p_tenant_id: staff.tenantId });
   if (error) return { ok: false, error: error.message };
-  revalidatePath('/setup');
+  revalidatePath('/app/setup');
   return { ok: true };
 }

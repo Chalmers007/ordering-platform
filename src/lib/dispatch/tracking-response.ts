@@ -21,14 +21,6 @@ export type TrackingResponse = {
   driver_phone: string | null;
   location: { lat: number; lng: number } | null;
   estimated_eta: string | null;
-  /**
-   * A courier-hosted tracking page, when one exists.
-   *
-   * Deliberately the ONE place the dispatch provider becomes visible to a
-   * customer — everything else about the courier is hidden. Render it only
-   * where a tenant has opted into showing it.
-   */
-  courier_tracking_url: string | null;
   order: {
     number: string;
     status: string;
@@ -76,7 +68,6 @@ export type TrackingRow = {
   latitude: number | null;
   longitude: number | null;
   estimated_delivery_at: string | null;
-  courier_tracking_url: string | null;
 };
 
 export function toTrackingResponse(row: TrackingRow): TrackingResponse {
@@ -88,7 +79,6 @@ export function toTrackingResponse(row: TrackingRow): TrackingResponse {
     driver_phone: row.driver_phone,
     location: hasLocation ? { lat: row.latitude as number, lng: row.longitude as number } : null,
     estimated_eta: row.estimated_delivery_at,
-    courier_tracking_url: row.courier_tracking_url,
     order: {
       number: row.order_number,
       status: row.order_status,

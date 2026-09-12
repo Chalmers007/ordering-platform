@@ -21,6 +21,7 @@ import { slugify } from '@/lib/scraper/schema';
 import { demoCreateSchema, normalizeDemoInput } from '@/lib/demo/create-input';
 import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
 import { cookies } from 'next/headers';
+import { validateOptionalFiles } from '@/lib/demo/validate-input-files';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,10 @@ function hashName(name: string): string {
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    const fileCheck = validateOptionalFiles(formData);
+    if (!fileCheck.ok) {
+      return NextResponse.json({ error: fileCheck.message }, { status: 400 });
+    }
     // Accept both the original API names and the field names used by the
     // sales builder. Only business name is required; the fallback path supplies
     // the sample menu and derives a stable slug when the rest is absent.

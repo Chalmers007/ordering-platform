@@ -20,10 +20,16 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type UberEvent = {
+  // Canonical Uber Direct event fields
+  id?: string;
+  kind?: string;
+  // Legacy fallbacks for older/alternate Uber webhook format
   event_id?: string;
   event_type?: string;
   delivery_id?: string;
   status?: string;
+  // Root-level location (courier_update webhook)
+  location?: { lat?: number; lng?: number };
   data?: {
     id?: string;
     status?: string;
@@ -61,6 +67,7 @@ export async function POST(request: NextRequest) {
 
   const deliveryId = event.data?.id ?? event.delivery_id;
   const rawStatus = event.data?.status ?? event.status;
+  const eventKind = event.kind ?? event.event_type;
 
   if (!deliveryId) {
     return NextResponse.json({ received: true, ignored: 'no delivery id' });
@@ -71,12 +78,18 @@ export async function POST(request: NextRequest) {
   // Idempotency. Couriers redeliver, and applying a 'delivered' event twice
   // would be harmless here but a duplicate 'picked_up' would re-stamp
   // timestamps. The unique index on (provider, event_id) is the guarantee.
-  const eventId = event.event_id ?? `${deliveryId}:${rawStatus ?? 'unknown'}`;
+  // Use Uber's canonical event ID; if missing, hash the raw signed body so
+  // identical events dedupe but distinct location pings do not.
+  let eventId = event.id ?? event.event_id;
+  if (!eventId) {
+    const { createHash } = await import('node:crypto');
+    eventId = createHash('sha256').update(rawBody).digest('hex');
+  }
 
   const { error: ledgerError } = await service.from('inbound_webhook_events').insert({
     provider: 'uber_direct',
     event_id: eventId,
-    event_type: event.event_type ?? rawStatus ?? 'delivery.status',
+    event_type: eventKind ?? rawStatus ?? 'delivery.status',
     payload: event as unknown as Json,
   });
 
@@ -101,7 +114,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, ignored: 'unmapped status' });
   }
 
-  const location = event.data?.courier?.location;
+  // Location may be at root level (courier_update) or nested (data.courier.location).
+  // Validate coordinates are finite and within legal ranges.
+  const rootLocation = event.location;
+  const nestedLocation = event.data?.courier?.location;
+  const location = rootLocation ?? nestedLocation;
+
+  function isValidCoordinate(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+  }
+
+  function isValidLatitude(lat: unknown): boolean {
+    return isValidCoordinate(lat) && lat >= -90 && lat <= 90;
+  }
+
+  function isValidLongitude(lng: unknown): boolean {
+    return isValidCoordinate(lng) && lng >= -180 && lng <= 180;
+  }
+
+  const latitude = isValidLatitude(location?.lat) ? (location!.lat as number) : undefined;
+  const longitude = isValidLongitude(location?.lng) ? (location!.lng as number) : undefined;
 
   const { data: orderId, error: applyError } = await service.rpc('apply_delivery_event', {
     p_provider: 'uber_direct',
@@ -109,9 +141,9 @@ export async function POST(request: NextRequest) {
     p_status: status,
     p_courier_name: event.data?.courier?.name ?? undefined,
     p_courier_phone: event.data?.courier?.phone_number ?? undefined,
-    p_latitude: typeof location?.lat === 'number' ? location.lat : undefined,
-    p_longitude: typeof location?.lng === 'number' ? location.lng : undefined,
-    p_tracking_url: event.data?.tracking_url ?? undefined,
+    p_latitude: latitude,
+    p_longitude: longitude,
+    p_tracking_url: undefined,
     p_estimated_delivery_at: event.data?.dropoff_eta ?? undefined,
   });
 

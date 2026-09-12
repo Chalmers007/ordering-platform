@@ -8,13 +8,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
   const next = request.nextUrl.searchParams.get('next') === '/claim' ? '/claim' : '/demo-builder/claim';
-  if (!token) return NextResponse.redirect(new URL(next, request.url));
+  const host = request.headers.get('x-hostname') ?? request.headers.get('host') ?? request.nextUrl.host;
+  const origin = `${request.nextUrl.protocol}//${host}`;
+  if (!token) return NextResponse.redirect(new URL(next, origin));
 
   const service = createServiceClient();
   const { data } = await service.rpc('verify_claim_token', { p_token: token });
-  if (!data?.[0]) return NextResponse.redirect(new URL(next, request.url));
+  if (!data?.[0]) return NextResponse.redirect(new URL(next, origin));
 
-  const response = NextResponse.redirect(new URL(next, request.url));
+  const response = NextResponse.redirect(new URL(next, origin));
   response.cookies.set(CLAIM_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: request.nextUrl.protocol === 'https:',

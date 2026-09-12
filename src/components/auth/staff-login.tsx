@@ -18,7 +18,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
  * you are; whether you may see this surface is settled by `is_super_admin()`
  * / tenant membership in the layout, and by RLS on every query.
  */
-export function StaffLogin({ title, subtitle }: { title: string; subtitle: string }) {
+export function StaffLogin({ title, subtitle, defaultRedirect = '/' }: { title: string; subtitle: string; defaultRedirect?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState('');
@@ -43,8 +43,11 @@ export function StaffLogin({ title, subtitle }: { title: string; subtitle: strin
       return;
     }
 
+    // Ensure the refreshed auth cookie is available to the next server-rendered
+    // dashboard request before navigating away from the login form.
+    await supabase.auth.getSession();
     const next = params.get('next');
-    router.replace(next && next.startsWith('/') ? next : '/');
+    router.replace(next && next.startsWith('/') ? next : defaultRedirect);
     router.refresh();
   }
 

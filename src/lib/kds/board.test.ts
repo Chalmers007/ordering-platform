@@ -40,10 +40,10 @@ describe('column mapping', () => {
   });
 
   it('keeps orders the kitchen no longer owns off the board', () => {
-    for (const status of ['draft', 'pending_payment', 'out_for_delivery', 'completed', 'cancelled', 'refunded'] as const) {
+    for (const status of ['draft', 'pending_payment', 'completed', 'cancelled', 'refunded'] as const) {
       expect(isOnBoard(status), `${status} should not be on the board`).toBe(false);
     }
-    expect(BOARD_STATUSES).toEqual(['paid', 'confirmed', 'preparing', 'ready']);
+    expect(BOARD_STATUSES).toEqual(['received', 'paid', 'confirmed', 'preparing', 'ready', 'out_for_delivery']);
   });
 });
 
@@ -110,7 +110,10 @@ describe('board grouping', () => {
 
 describe('advance actions', () => {
   it('offers the next step for each kitchen status', () => {
-    expect(primaryActionFor({ status: 'paid', fulfillment_type: 'delivery' })?.to).toBe('preparing');
+    expect(primaryActionFor({ status: 'paid', fulfillment_type: 'delivery' })).toMatchObject({
+      to: 'confirmed',
+      label: 'Accept order',
+    });
     expect(primaryActionFor({ status: 'confirmed', fulfillment_type: 'pickup' })?.to).toBe('preparing');
     expect(primaryActionFor({ status: 'preparing', fulfillment_type: 'pickup' })?.to).toBe('ready');
   });

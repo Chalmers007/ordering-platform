@@ -17,19 +17,17 @@ export default async function IntegrationsPage() {
     .eq('provider', 'stripe')
     .maybeSingle();
 
-  // Secrets are never sent to the browser — only whether one is set, so the
-  // form can say "configured" without handing the value back.
   const service = createServiceClient();
-  const { data: secrets } = await service
+  const { data: webhookSecret } = await service
     .from('tenant_secrets')
     .select('key')
-    .eq('tenant_id', staff.tenantId);
-
-  const keys = new Set((secrets ?? []).map((s) => s.key));
+    .eq('tenant_id', staff.tenantId)
+    .eq('key', 'ghl_webhook_url')
+    .maybeSingle();
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6">
-      <h1 className="text-xl font-semibold text-neutral-100">Integrations & POS</h1>
+      <h1 className="text-xl font-semibold text-neutral-100">Payments & connections</h1>
       <p className="mt-1 text-sm text-neutral-400">
         Payments, order notifications, and point-of-sale.
       </p>
@@ -44,8 +42,7 @@ export default async function IntegrationsPage() {
             detailsSubmitted: Boolean(gateway?.details_submitted),
             status: gateway?.status ?? null,
           }}
-          hasOrderWebhook={keys.has('ghl_webhook_url')}
-          hasPosCredentials={keys.has('pos_api_key')}
+          hasOrderWebhook={Boolean(webhookSecret)}
           stripeConfigured={Boolean(process.env.STRIPE_SECRET_KEY)}
         />
       </div>

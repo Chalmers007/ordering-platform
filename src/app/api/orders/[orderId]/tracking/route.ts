@@ -34,11 +34,11 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  // Get delivery details
+  // Get delivery details (no tracking_url — courier tracking stays in-app only)
   const { data: delivery } = await supabase
     .from('deliveries')
     .select(
-      'status, courier_name, courier_phone, courier_latitude, courier_longitude, estimated_delivery_at, tracking_url, updated_at',
+      'status, courier_name, courier_phone, courier_latitude, courier_longitude, estimated_delivery_at, updated_at',
     )
     .eq('order_id', orderId)
     .maybeSingle();
@@ -52,7 +52,6 @@ export async function GET(
     courierLatitude: delivery?.courier_latitude,
     courierLongitude: delivery?.courier_longitude,
     estimatedDeliveryAt: delivery?.estimated_delivery_at,
-    trackingUrl: delivery?.tracking_url,
     lastUpdate: delivery?.updated_at || order.id, // Fallback to creation if no delivery yet
   });
 }

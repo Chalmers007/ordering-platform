@@ -3,6 +3,7 @@ import { createClientForRequest } from '@/lib/supabase/server';
 import { resolveStaffTenantId } from '@/lib/admin/guard';
 import { MenuManager } from '@/components/dashboard/menu-manager';
 import { ConfirmMenuCard } from '@/components/dashboard/confirm-menu-card';
+import { ModifierManager } from '@/components/dashboard/modifier-manager';
 import type { MenuCategory, MenuItem, MenuModifierGroup } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export default async function MenuPage() {
 
   const supabase = await createClientForRequest();
 
-  const [{ data: tenant }, { data: categories }, { data: items }, { data: groups }, { data: links }] =
+  const [{ data: tenant }, { data: categories }, { data: items }, { data: groups }, { data: modifiers }, { data: links }] =
     await Promise.all([
       supabase.from('tenants').select('menu_verified_at').eq('id', staff.tenantId).maybeSingle(),
       supabase
@@ -28,6 +29,11 @@ export default async function MenuPage() {
         .order('sort_order'),
       supabase
         .from('menu_modifier_groups')
+        .select('*')
+        .eq('tenant_id', staff.tenantId)
+        .order('sort_order'),
+      supabase
+        .from('menu_modifiers')
         .select('*')
         .eq('tenant_id', staff.tenantId)
         .order('sort_order'),
@@ -56,6 +62,14 @@ export default async function MenuPage() {
           items={(items ?? []) as MenuItem[]}
           groups={(groups ?? []) as MenuModifierGroup[]}
           links={links ?? []}
+        />
+      </div>
+      <div className="mt-5">
+        <ModifierManager
+          groups={(groups ?? []).map((group) => ({
+            ...group,
+            menu_modifiers: (modifiers ?? []).filter((modifier) => modifier.group_id === group.id),
+          }))}
         />
       </div>
     </main>

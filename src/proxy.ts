@@ -55,6 +55,7 @@ export const HOSTNAME_HEADER = 'x-hostname';
 export const TENANT_PREVIEW_HEADER = 'x-tenant-preview';
 
 const SPOOFABLE_HEADERS = [
+  'x-local-original-host',
   TENANT_ID_HEADER,
   TENANT_SLUG_HEADER,
   TENANT_NAME_HEADER,
@@ -137,13 +138,23 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   for (const header of SPOOFABLE_HEADERS) requestHeaders.delete(header);
 
+  // Next's development server rewrites tenant subdomains through its
+  // localhost listener and preserves the original host in x-forwarded-host.
+  // Trust that hint only in development; production always uses Host.
+  const inboundHost = request.headers.get('host') || request.nextUrl.hostname;
+  const internalHost = request.headers.get('x-local-original-host');
   const hostname =
-    request.headers.get('host') ?? request.nextUrl.hostname;
+    (process.env.NODE_ENV === 'development' && internalHost) ||
+    (process.env.NODE_ENV === 'development' && request.headers.get('x-forwarded-host')) ||
+    inboundHost;
   const resolution = resolveHost(hostname, ROOT_DOMAIN);
   const { pathname, search } = request.nextUrl;
 
   requestHeaders.set(SURFACE_HEADER, resolution.surface);
   requestHeaders.set(HOSTNAME_HEADER, hostname);
+  if (process.env.NODE_ENV === 'development') {
+    requestHeaders.set('x-local-original-host', hostname);
+  }
 
   // ---- Auth session refresh ------------------------------------------
   // The response is created up front so both the Supabase cookie writes and
@@ -237,7 +248,8 @@ export async function proxy(request: NextRequest) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
       }
 
-      if (!user && !pathname.startsWith('/login')) {
+      const isCanonicalLoginPath = pathname === `${prefix}/login`;
+      if (!user && !pathname.startsWith('/login') && !isCanonicalLoginPath) {
         const login = request.nextUrl.clone();
         // The PUBLIC path, not the internal one. On this host the browser
         // asks for `/login`; `${prefix}/login` is only what we rewrite it to.
@@ -253,7 +265,13 @@ export async function proxy(request: NextRequest) {
       // tenant-membership check in the layout. Middleware only decides *where
       // a request goes*; it must never be the only thing standing between a
       // user and data.
-      return applyCookies(rewrite(request, `${prefix}${pathname === '/' ? '' : pathname}`, requestHeaders));
+      // Accept the canonical route as well as the public host-relative path.
+      // This keeps direct local checks of /admin/login from being rewritten to
+      // /admin/admin/login while preserving the layout's authorization guard.
+      const targetPath = pathname.startsWith(prefix)
+        ? pathname
+        : `${prefix}${pathname === '/' ? '' : pathname}`;
+      return applyCookies(rewrite(request, targetPath, requestHeaders));
     }
 
     case 'storefront': {
@@ -270,6 +288,10 @@ export async function proxy(request: NextRequest) {
       requestHeaders.set(TENANT_SLUG_HEADER, tenant.slug);
       requestHeaders.set(TENANT_NAME_HEADER, encodeURIComponent(tenant.name));
       requestHeaders.set(TENANT_STATUS_HEADER, tenant.status);
+      if (process.env.NODE_ENV === 'development' && internalHost && (pathname === '/store' || pathname.startsWith('/store/'))) {
+        if (tenant.status === 'pending_claim' || tenant.status === 'pending') requestHeaders.set(TENANT_PREVIEW_HEADER, '1');
+        return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+      }
 
       if (isClaimRoute) {
         return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
