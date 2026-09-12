@@ -6,6 +6,7 @@ import { CreateTestPreviewButton } from '@/components/admin/create-test-preview-
 import { TestUberBtn } from '@/components/admin/test-uber-btn';
 import { CheckTenantConfig } from '@/components/admin/check-tenant-config';
 import { StoreUberIdForm } from '@/components/admin/store-uber-id-form';
+import { CreateRestaurantDialog } from '@/components/admin/create-restaurant-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ export default async function AdminOverviewPage() {
         <div className="flex gap-2">
           <CheckTenantConfig tenantSlug="vardr-upload-test" />
           <TestUberBtn />
+          <CreateRestaurantDialog />
           <CreateTestPreviewButton />
         </div>
       </div>
