@@ -84,26 +84,27 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireSuperAdmin();
-  if (!guard.ok) {
-    return NextResponse.json(
-      { error: guard.reason === 'unauthenticated' ? 'Not signed in' : 'Forbidden' },
-      { status: guard.reason === 'unauthenticated' ? 401 : 403 },
-    );
-  }
-
-  let body: z.infer<typeof createSchema>;
   try {
-    body = createSchema.parse(await request.json());
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+    const guard = await requireSuperAdmin();
+    if (!guard.ok) {
       return NextResponse.json(
-        { error: 'Invalid restaurant details', fieldErrors: z.flattenError(error).fieldErrors },
-        { status: 422 },
+        { error: guard.reason === 'unauthenticated' ? 'Not signed in' : 'Forbidden' },
+        { status: guard.reason === 'unauthenticated' ? 401 : 403 },
       );
     }
-    return NextResponse.json({ error: 'Malformed request body' }, { status: 400 });
-  }
+
+    let body: z.infer<typeof createSchema>;
+    try {
+      body = createSchema.parse(await request.json());
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid restaurant details', fieldErrors: z.flattenError(error).fieldErrors },
+          { status: 422 },
+        );
+      }
+      return NextResponse.json({ error: 'Malformed request body' }, { status: 400 });
+    }
 
   const supabase = await createClientForRequest();
 
@@ -192,12 +193,19 @@ export async function POST(request: NextRequest) {
   // waiting for a scheduler that may not be configured yet.
   const delivery = await drainWebhookEvents(tenant.id).catch(() => null);
 
-  return NextResponse.json(
-    {
-      tenant,
-      ownerId,
-      notifications: delivery ?? { delivered: 0, failed: 0, skipped: 0 },
-    },
-    { status: 201 },
-  );
+    return NextResponse.json(
+      {
+        tenant,
+        ownerId,
+        notifications: delivery ?? { delivered: 0, failed: 0, skipped: 0 },
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error('[POST /api/admin/tenants] unhandled error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
+      { status: 500 },
+    );
+  }
 }
