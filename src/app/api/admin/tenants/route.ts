@@ -119,7 +119,11 @@ export async function POST(request: NextRequest) {
     p_trial_days: body.trialDays,
   });
 
+  console.log('[provision_tenant] request:', { name: body.name, slug: body.slug });
+  console.log('[provision_tenant] response:', { tenant, error: provisionError });
+
   if (provisionError || !tenant) {
+    console.error('[provision_tenant] failed:', provisionError?.message);
     return NextResponse.json(
       { error: provisionError?.message ?? 'The restaurant could not be created' },
       { status: statusForPostgresError(provisionError?.code) },
