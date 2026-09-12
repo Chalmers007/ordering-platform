@@ -229,9 +229,31 @@ export async function proxy(request: NextRequest) {
   };
 
   // ---- Surface routing -----------------------------------------------
+  // Path-based routing takes precedence: explicit /admin/* and /app/* paths
+  // on any hostname route to their respective surfaces, bypassing hostname-based
+  // surface detection. This allows admin.localhost:3000/admin/login and
+  // app.order.vardrsystems.com/admin/login to both work correctly.
+  if (pathname.startsWith('/admin/') || pathname === '/admin') {
+    const prefix = '/admin';
+    if (isApiRoute || isAuthRoute) {
+      return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    }
+    const targetPath = pathname.startsWith(prefix) ? pathname : `${prefix}${pathname === '/' ? '' : pathname}`;
+    return applyCookies(rewrite(request, targetPath, requestHeaders));
+  }
+
+  if (pathname.startsWith('/app/') || pathname === '/app') {
+    const prefix = '/app';
+    if (isApiRoute || isAuthRoute) {
+      return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    }
+    const targetPath = pathname.startsWith(prefix) ? pathname : `${prefix}${pathname === '/' ? '' : pathname}`;
+    return applyCookies(rewrite(request, targetPath, requestHeaders));
+  }
+
   switch (resolution.surface) {
     case 'marketing': {
-      if (pathname.startsWith('/admin') || pathname.startsWith('/app') || pathname.startsWith('/store')) {
+      if (pathname.startsWith('/store')) {
         return applyCookies(NextResponse.rewrite(new URL('/404', request.url), { request: { headers: requestHeaders } }));
       }
       return response;
