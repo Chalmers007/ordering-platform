@@ -38,8 +38,11 @@ export function CreateRestaurantDialog() {
       }
 
       if (!body?.tenant?.id) {
-        toast.error('No restaurant returned from server');
-        console.error('Invalid response structure:', body);
+        const message = Array.isArray(body) && body[0]?.id
+          ? 'Data returned but in unexpected format'
+          : 'No restaurant returned from server';
+        toast.error(message);
+        console.error('Invalid response structure:', { body, isArray: Array.isArray(body), keys: body ? Object.keys(body) : null });
         return;
       }
 
