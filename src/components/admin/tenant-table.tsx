@@ -82,6 +82,16 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
     });
     setImpersonating(null);
 
+    // See the same guard in deleteTenant(): a routing problem upstream can
+    // serve a 200 HTML page instead of this endpoint's JSON. Without this
+    // check that reads as "ok, but no redirectTo" and silently falls through
+    // to router.refresh() below — a no-op on the page the admin is already
+    // on, which is exactly what "click Log in as, nothing happens" looks like.
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+      toast.error('Could not start impersonation: unexpected response from the server. Please try again.');
+      return;
+    }
+
     const body = (await response.json().catch(() => null)) as
       | { error?: string; redirectTo?: string }
       | null;
@@ -115,8 +125,20 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
     setConfirmingDelete(null);
     setDeleting(tenant.id);
     const response = await fetch(`/api/admin/tenants/${tenant.id}`, { method: 'DELETE' });
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
     setDeleting(null);
+
+    // A routing problem upstream of this handler (wrong host, misconfigured
+    // domain, ...) can serve a 200 HTML page in place of the real API
+    // response. That is not a body we can parse as this endpoint's JSON, and
+    // treating a 200 as success regardless of what is actually in it is how
+    // a delete that never happened gets reported as done — the restaurant
+    // stays in the database and reappears the moment the list reloads.
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+      toast.error('Could not delete restaurant: unexpected response from the server. Please try again.');
+      return;
+    }
+
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
 
     if (!response.ok) {
       toast.error(body?.error ?? 'Could not delete restaurant');

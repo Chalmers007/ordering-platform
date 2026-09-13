@@ -244,7 +244,18 @@ export async function proxy(request: NextRequest) {
   // on any hostname route to their respective surfaces, bypassing hostname-based
   // surface detection. This allows admin.localhost:3000/admin/login and
   // app.order.vardrsystems.com/admin/login to both work correctly.
-  if (pathname.startsWith('/admin/') || pathname === '/admin') {
+  //
+  // The prefix check has to include /api/admin and /api/app too, not just
+  // the page paths: a route handler lives at /api/admin/impersonate, which
+  // does not start with "/admin/". Before this, every fetch() call an admin
+  // page made (impersonate, delete tenant, ...) fell through to the
+  // hostname-based switch below instead, and on a hostname that switch does
+  // not resolve as 'admin'/'app' it was swallowed by the storefront branch:
+  // a 200 "storefront unavailable" HTML page in place of the real handler.
+  // That reads as success to code that only checks `response.ok`, which is
+  // how "Log in as" went nowhere and a deleted restaurant "came back" (the
+  // DELETE never ran, but the admin console still showed it gone locally).
+  if (pathname.startsWith('/admin/') || pathname === '/admin' || pathname.startsWith('/api/admin')) {
     const prefix = '/admin';
     if (isApiRoute || isAuthRoute) {
       return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
@@ -253,7 +264,7 @@ export async function proxy(request: NextRequest) {
     return applyCookies(rewrite(request, targetPath, requestHeaders));
   }
 
-  if (pathname.startsWith('/app/') || pathname === '/app') {
+  if (pathname.startsWith('/app/') || pathname === '/app' || pathname.startsWith('/api/app')) {
     const prefix = '/app';
     if (isApiRoute || isAuthRoute) {
       return applyCookies(NextResponse.next({ request: { headers: requestHeaders } }));
