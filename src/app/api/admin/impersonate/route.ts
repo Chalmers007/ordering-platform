@@ -66,11 +66,18 @@ export async function POST(request: NextRequest) {
     impersonationSecret(),
   );
 
-  // Impersonation is for working inside a restaurant, so it ends on the
-  // staff dashboard, not on the console it was started from.
+  // Impersonation is for working inside a restaurant, so it lands on the
+  // staff dashboard, not the console it was started from — but on the SAME
+  // host the admin is already signed into, not app.<root>. The admin's own
+  // Supabase session cookie is host-only (never given a shared root domain,
+  // unlike this impersonation cookie), so a cross-subdomain redirect would
+  // arrive with no session and bounce straight to /login. `/app/*` is
+  // reachable path-based on any host (proxy.ts rewrites it ahead of the
+  // hostname switch), so staying on this host keeps the session valid.
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
   const proto = request.headers.get('x-forwarded-proto') ?? (root.startsWith('localhost') ? 'http' : 'https');
-  const redirectTo = `${proto}://app.${root}`;
+  const host = request.headers.get('host') ?? `admin.${root}`;
+  const redirectTo = `${proto}://${host}/app`;
 
   // A browser form POST follows a 303 natively. A fetch() caller cannot:
   // it transparently follows redirects and can never read the Location
