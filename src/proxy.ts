@@ -37,6 +37,22 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+/**
+ * Domains attached to this Vercel project that are not ROOT_DOMAIN and are
+ * not any real tenant's custom domain. resolveHost() has no way to tell
+ * "not configured yet" apart from "a customer's live storefront" - both
+ * come back `storefront: custom-domain` and, finding no matching tenant,
+ * dead-end on a generic "storefront unavailable" page. That is exactly how
+ * admin/staff logins on these hosts led nowhere: right page, wrong domain,
+ * no hint that a different one exists.
+ *
+ * Every request to one of these is sent to the equivalent path on
+ * ROOT_DOMAIN instead of resolving as a phantom storefront. Remove an entry
+ * here (and detach the domain in Vercel) once it is either retired or
+ * actually wired up as ROOT_DOMAIN / a real tenant's custom domain.
+ */
+const DEAD_END_DOMAINS = new Set(['order.vardros.com', 'order.vardrsystems.com']);
+
 /** Headers the app reads via `headers()`. Stripped from every inbound
  *  request first so a client can never forge its own tenant. */
 export const TENANT_ID_HEADER = 'x-tenant-id';
@@ -147,8 +163,18 @@ export async function proxy(request: NextRequest) {
     (process.env.NODE_ENV === 'development' && internalHost) ||
     (process.env.NODE_ENV === 'development' && request.headers.get('x-forwarded-host')) ||
     inboundHost;
-  const resolution = resolveHost(hostname, ROOT_DOMAIN);
   const { pathname, search } = request.nextUrl;
+
+  // Bare host or any subdomain of one of these (app./admin./www./etc.) -
+  // send it to the real domain before doing any tenant/surface resolution
+  // at all, so it can never be mistaken for a customer's storefront.
+  const bareHost = hostname.replace(/^[^.]+\./, '');
+  if (DEAD_END_DOMAINS.has(hostname) || DEAD_END_DOMAINS.has(bareHost)) {
+    const target = new URL(`https://${ROOT_DOMAIN}${pathname}${search}`);
+    return NextResponse.redirect(target, 308);
+  }
+
+  const resolution = resolveHost(hostname, ROOT_DOMAIN);
 
   requestHeaders.set(SURFACE_HEADER, resolution.surface);
   requestHeaders.set(HOSTNAME_HEADER, hostname);
