@@ -216,7 +216,20 @@ export async function proxy(request: NextRequest) {
   // Impersonation, on the two staff-facing surfaces only. The cookie is
   // verified here so nothing downstream has to trust a raw cookie value,
   // and the header it sets is what makes audit_logs.impersonated true.
-  if (user && (resolution.surface === 'admin' || resolution.surface === 'app')) {
+  //
+  // This has to agree with the PATH-based surface override below, not just
+  // resolveHost()'s hostname-based guess. On a root domain that serves /app
+  // and /admin by path (e.g. demo.vardros.com/app/kds, with no "app."
+  // subdomain), resolution.surface alone comes back 'marketing' - so a
+  // hostname-only check here would silently skip verifying the cookie, and
+  // "Log in as" would land an administrator on WrongAccountNotice despite a
+  // valid impersonation session (the banner reads the cookie separately and
+  // still renders, making it look like impersonation "worked" while every
+  // actual page guard sees no header and refuses).
+  const isAdminPath = pathname.startsWith('/admin/') || pathname === '/admin' || pathname.startsWith('/api/admin');
+  const isAppPath = pathname.startsWith('/app/') || pathname === '/app' || pathname.startsWith('/api/app');
+  const effectiveSurface = isAdminPath ? 'admin' : isAppPath ? 'app' : resolution.surface;
+  if (user && (effectiveSurface === 'admin' || effectiveSurface === 'app')) {
     const secret =
       process.env.IMPERSONATION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
     const claims = await verifyImpersonationToken(
