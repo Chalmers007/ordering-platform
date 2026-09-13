@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { ClaimForm } from '@/components/claim/claim-form';
+import { RecoverForm } from '@/components/claim/recover-form';
 import { AutoRefresh } from '@/components/claim/auto-refresh';
 import { BookingLink } from '@/components/claim/booking-link';
 import { CLAIM_SESSION_COOKIE } from '@/lib/claims/session';
@@ -34,8 +35,10 @@ export default async function DemoBuilderClaimCompletePage() {
 
   if (!status) {
     return (
-      <Centered title="Link not valid">
-        This link has expired or is no longer valid. Please request a new demo link.
+      <Centered title="Enter the email you paid with">
+        If you just paid for a plan, enter the email you used at checkout to continue setting up
+        your account.
+        <RecoverForm />
       </Centered>
     );
   }
@@ -109,7 +112,7 @@ function Centered({ title, children }: { title: string; children: React.ReactNod
     <main className="flex min-h-dvh items-center justify-center bg-neutral-50 px-6">
       <div className="max-w-md text-center">
         <h1 className="text-2xl font-semibold text-neutral-900">{title}</h1>
-        <p className="mt-3 text-neutral-600">{children}</p>
+        <div className="mt-3 text-neutral-600">{children}</div>
       </div>
     </main>
   );
