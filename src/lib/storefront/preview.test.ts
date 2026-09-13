@@ -8,7 +8,6 @@ const PROXY = readFileSync('src/proxy.ts', 'utf8');
 const PAGE = readFileSync('src/app/(storefront)/store/page.tsx', 'utf8');
 const CHECKOUT = readFileSync('src/app/(storefront)/store/checkout/page.tsx', 'utf8');
 const BANNER = readFileSync('src/components/storefront/preview-banner.tsx', 'utf8');
-const PREVIEW = readFileSync('src/lib/storefront/preview.ts', 'utf8');
 
 afterEach(() => { delete process.env.NEXT_PUBLIC_CLAIM_CTA_URL; vi.resetModules(); });
 
@@ -84,9 +83,9 @@ describe('what the preview shows and hides', () => {
     const tenantId = '5cdc250d-87c5-4651-a441-6037852ca1bd';
     const html = renderToStaticMarkup(createElement(PreviewBanner, {
       restaurantName: 'Demo Storefront',
-      ctaHref: '/claim',
+      tenantId,
       walkthroughHref: '/walkthrough',
-      personalise: { tenantId, hasLogo: false, hasBanner: false, logoAssetId: null, bannerAssetId: null },
+      personalise: { hasLogo: false, hasBanner: false, logoAssetId: null, bannerAssetId: null },
     }));
     expect(html).not.toContain(tenantId);
     for (const forbidden of [/claim_token/i, /tenant_id/, /token=/, /service_role/i, /stripe/i]) {
@@ -94,11 +93,25 @@ describe('what the preview shows and hides', () => {
     }
   });
 
-  it('the CTA points at the sales route, never at a claim link', () => {
-    // A claim link grants ownership to whoever opens it. On a public page that
-    // is the whole storefront handed to the first stranger who looks.
-    expect(PREVIEW).not.toMatch(/claim_token|token=/);
-    expect(PREVIEW).toMatch(/NEXT_PUBLIC_CLAIM_CTA_URL/);
+  it('activation is self-serve now — Scott traded the sales gate for scale', () => {
+    // This test used to read "the CTA points at the sales route, never at a
+    // claim link", because a claim token — a bearer credential that hands
+    // the whole storefront to whoever redeems it — was only ever issued
+    // after someone at Vardr had spoken to the business. Scott made a
+    // deliberate, informed call to trade that vetting step for scale: see
+    // request_claim_token() in
+    // supabase/migrations/20260913000100_self_serve_claim_token.sql and
+    // src/app/api/claim/request/route.ts for the full rationale and the
+    // guardrails that remain. This test documents what replaced the old
+    // gate, not that the gate still exists.
+    expect(BANNER).toMatch(/fetch\('\/api\/claim\/request'/);
+    // The token still never appears in banner markup or a URL — it moved
+    // from "never issued here" to "issued, but only ever as an httpOnly
+    // cookie, never in the response body or a redirect".
+    expect(BANNER).not.toMatch(/claim_token|token=/);
+    const claimRequestRoute = readFileSync('src/app/api/claim/request/route.ts', 'utf8');
+    expect(claimRequestRoute).toMatch(/httpOnly: true/);
+    expect(claimRequestRoute).not.toMatch(/NextResponse\.json\(\{[^}]*token/);
   });
 
   it('the CTA is configurable and defaults to the claim route', async () => {

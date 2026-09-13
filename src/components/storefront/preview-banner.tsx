@@ -13,11 +13,24 @@ import { PersonalisePanel } from './personalise-panel';
  * taking orders. Anything vaguer risks a diner believing they have ordered
  * dinner, or an owner believing prices they never approved are already live.
  *
- * No tenant id or credential is displayed. The preview tenant ID is passed
- * to the upload control for server-side validation. The claim link is a
- * bearer credential and is never rendered on a public page — the call to
- * action leads to the sales route, which is where a real claim link is issued
- * from after the business is spoken to.
+ * No tenant id or credential is displayed as TEXT anywhere on the page, and
+ * the claim token itself is never rendered, logged, or put in a URL — it
+ * travels straight into an httpOnly cookie from the API route this banner
+ * calls. tenantId IS passed to this component (the upload control already
+ * needed it for server-side validation, and "Activate" now needs it too to
+ * ask for a token), but it stays inside component state and request bodies,
+ * never in markup or an href a page's HTML would expose.
+ *
+ * "Activate My Storefront" used to link to a sales-qualification route: a
+ * claim token was only ever issued after someone at Vardr had spoken to the
+ * business. It now self-issues a token on click instead — Scott traded that
+ * vetting step for scale, knowingly: whoever clicks first for a given
+ * tenant gets to claim it, no conversation required. See
+ * request_claim_token() in
+ * supabase/migrations/20260913000100_self_serve_claim_token.sql and
+ * /api/claim/request/route.ts for the full rationale and the guardrails
+ * that remain (an already-claimed or suspended/cancelled tenant can never
+ * be claimed this way).
  *
  * Colours are chosen for the LIGHT storefront surface (brand-background
  * defaults to #FFFFFF). The first version used a dark-surface amber palette
@@ -35,24 +48,47 @@ function monogram(name: string): string {
 export function PreviewBanner({
   restaurantName,
   tagline,
-  ctaHref,
-  activationHref,
+  tenantId,
   walkthroughHref,
   personalise,
 }: {
   restaurantName: string;
   tagline?: string | null;
-  ctaHref: string;
-  activationHref?: string;
+  tenantId: string;
   walkthroughHref: string;
   /** Absent when the visitor has uploaded nothing yet. */
   personalise: { tenantId?: string; logoUrl?: string; bannerUrl?: string; hasLogo: boolean; hasBanner: boolean; logoAssetId: string | null; bannerAssetId: string | null };
 }) {
   const [images, setImages] = useState<{ logo?: string | null; banner?: string | null }>({});
   const [activating, setActivating] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
   const logoUrl = images.logo === undefined ? personalise.logoUrl : images.logo;
   const bannerUrl = images.banner === undefined ? personalise.bannerUrl : images.banner;
   const personalised = { ...personalise, logoUrl: logoUrl ?? undefined, bannerUrl: bannerUrl ?? undefined };
+
+  async function handleActivate() {
+    setActivating(true);
+    setActivationError(null);
+    try {
+      const response = await fetch('/api/claim/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setActivationError(body?.error ?? 'Could not start your claim. Please try again.');
+        setActivating(false);
+        return;
+      }
+      // The token just landed in an httpOnly cookie; /demo-builder/claim
+      // reads it from there, so a plain same-origin navigation is enough.
+      window.location.href = '/demo-builder/claim';
+    } catch {
+      setActivationError('Could not reach the server. Please try again.');
+      setActivating(false);
+    }
+  }
 
   return (
     <header className="bg-neutral-950 text-white">
@@ -80,12 +116,17 @@ export function PreviewBanner({
           </div>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <a href={walkthroughHref} className="hidden rounded-lg px-2.5 py-2 text-xs font-semibold text-white/75 transition hover:bg-white/10 hover:text-white sm:inline-flex">Book Walkthrough</a>
-            <a href={activationHref ?? ctaHref} onClick={() => setActivating(true)} className="inline-flex rounded-lg bg-white px-2.5 py-2 text-xs font-semibold text-neutral-950 transition hover:bg-white/90">
+            <button type="button" onClick={handleActivate} disabled={activating} className="inline-flex rounded-lg bg-white px-2.5 py-2 text-xs font-semibold text-neutral-950 transition hover:bg-white/90 disabled:opacity-70">
               {activating ? 'Opening…' : <><span className="sm:hidden">Activate</span><span className="hidden sm:inline">Activate My Storefront</span></>}
-            </a>
+            </button>
             <PersonalisePanel {...personalised} onImageChange={(kind, url) => setImages((current) => ({ ...current, [kind]: url }))} triggerLabel="Customize" triggerClassName="rounded-lg border border-white/20 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-white/10" />
           </div>
         </div>
+        {activationError && (
+          <div role="alert" className="border-t border-red-400/30 bg-red-950/60 px-3 py-2 text-center text-xs font-medium text-red-100 sm:px-4">
+            {activationError}
+          </div>
+        )}
       </nav>
       <section className="relative isolate h-[min(68vw,30rem)] min-h-[18rem] overflow-visible sm:min-h-[22rem]" aria-labelledby="preview-store-name">
         {bannerUrl ? (

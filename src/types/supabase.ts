@@ -2201,6 +2201,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_claim_token: {
+        Args: { p_tenant_id: string; p_ttl_days?: number }
+        Returns: string
+      }
       resolve_checkout_order: {
         Args: { p_session_id: string }
         Returns: {

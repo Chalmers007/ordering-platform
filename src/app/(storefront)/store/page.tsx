@@ -3,7 +3,7 @@ import { getTenantContext } from '@/lib/tenancy/context';
 import { loadStorefront, orderingAvailability } from '@/lib/storefront/data';
 import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
-import { isPreviewRequest, claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
+import { isPreviewRequest, walkthroughCtaHref } from '@/lib/storefront/preview';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +34,7 @@ export default async function StorefrontPage() {
       {preview && (
         <PreviewBanner
           restaurantName={storefront.tenant.name}
-          ctaHref={claimCtaHref()}
+          tenantId={tenant.tenantId}
           walkthroughHref={walkthroughCtaHref()}
           personalise={{
             hasLogo: Boolean(logo),

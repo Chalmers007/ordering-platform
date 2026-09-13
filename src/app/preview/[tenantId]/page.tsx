@@ -3,7 +3,7 @@ import { loadStorefront } from '@/lib/storefront/data';
 import { MenuBrowser } from '@/components/storefront/menu-browser';
 import { PreviewBanner } from '@/components/storefront/preview-banner';
 import { currentPreviewSession, sessionAssets } from '@/lib/preview-personalisation/session';
-import { activationCtaHref, claimCtaHref, walkthroughCtaHref } from '@/lib/storefront/preview';
+import { walkthroughCtaHref } from '@/lib/storefront/preview';
 import { createServiceClient } from '@/lib/supabase/server';
 import { PREVIEW_BUCKET } from '@/lib/preview-personalisation/bucket';
 import { CartProvider } from '@/lib/cart/cart-context';
@@ -26,18 +26,6 @@ async function getTenant(tenantId: string) {
   return data ?? null;
 }
 
-async function getRavenProspectId(tenantId: string): Promise<string | null> {
-  // demo_fallback_state is server-only and is not included in the generated
-  // public client types because its grants are revoked from app roles.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (createServiceClient() as any)
-    .from('demo_fallback_state')
-    .select('raven_prospect_id')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
-  return data?.raven_prospect_id ?? null;
-}
-
 export default async function PreviewPage({ params }: PreviewPageProps) {
   const { tenantId } = await params;
 
@@ -53,9 +41,6 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
   if (!storefront) {
     notFound();
   }
-  const ravenProspectId = await getRavenProspectId(tenantId);
-  const foodType = storefront.categories[0]?.name ?? null;
-
   // Get this visitor's session if they have one (for uploaded logo/banner)
   const session = await currentPreviewSession(tenantId);
   const uploads = session ? await sessionAssets(session.id) : [];
@@ -73,13 +58,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
       <PreviewBanner
         restaurantName={tenant.name}
         tagline={storefront.settings.tagline}
-        ctaHref={claimCtaHref()}
-        activationHref={activationCtaHref(claimCtaHref(), {
-          demoId: tenantId,
-          businessName: tenant.name,
-          foodType,
-          ravenProspectId,
-        })}
+        tenantId={tenantId}
         walkthroughHref={walkthroughCtaHref()}
         personalise={{
           tenantId,
