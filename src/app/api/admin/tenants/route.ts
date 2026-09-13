@@ -16,16 +16,28 @@ import { drainWebhookEvents } from '@/lib/webhooks/dispatch';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * The create-restaurant dialog always sends every field, even ones the
+ * operator left blank, as an empty string rather than omitting the key.
+ * Treat a blank string as "not provided" for every optional field before
+ * the real validator (regex, email, length) sees it, so leaving Support
+ * Email or the slug blank does not fail validation the way it did before.
+ */
+const blankToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+
 const createSchema = z.object({
   name: z.string().min(1).max(160),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/, 'Use lowercase letters, numbers and hyphens')
-    .optional(),
+  slug: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/, 'Use lowercase letters, numbers and hyphens')
+      .optional(),
+  ),
   ownerEmail: z.string().email().max(254),
-  ownerName: z.string().max(160).optional(),
-  supportEmail: z.string().email().max(254).optional(),
-  supportPhone: z.string().max(32).optional(),
+  ownerName: z.preprocess(blankToUndefined, z.string().max(160).optional()),
+  supportEmail: z.preprocess(blankToUndefined, z.string().email().max(254).optional()),
+  supportPhone: z.preprocess(blankToUndefined, z.string().max(32).optional()),
   timezone: z.string().max(64).default('America/New_York'),
   currency: z.string().length(3).default('USD'),
   trialDays: z.number().int().min(0).max(365).default(14),
