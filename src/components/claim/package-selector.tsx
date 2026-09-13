@@ -20,6 +20,8 @@ export function PackageSelector({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState('');
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // Load packages on mount
   useEffect(() => {
@@ -44,6 +46,10 @@ export function PackageSelector({
       toast.error('Please select a package');
       return;
     }
+    if (!emailValid) {
+      toast.error('Enter the email you want your receipt and account sent to');
+      return;
+    }
 
     setBusy(true);
     try {
@@ -53,6 +59,7 @@ export function PackageSelector({
         body: JSON.stringify({
           tenant_id: tenantId,
           package_id: selectedId,
+          customer_email: email.trim(),
         }),
       });
 
@@ -64,9 +71,11 @@ export function PackageSelector({
         return;
       }
 
-      // Redirect to Stripe checkout
-      if (data.checkout_url) {
-        window.location.assign(data.checkout_url);
+      // Stripe checkout session, or a GHL payment link - either way, the
+      // browser leaves for the payment provider from here.
+      const destination = data.checkout_url || data.payment_link_url;
+      if (destination) {
+        window.location.assign(destination);
       } else {
         toast.error('No checkout URL returned');
         setBusy(false);
@@ -142,10 +151,30 @@ export function PackageSelector({
         ))}
       </div>
 
+      {/* Email (required so payment confirmation can be matched back to this restaurant) */}
+      <div>
+        <label htmlFor="claim-email" className="mb-1 block text-sm font-medium text-neutral-900">
+          Your email
+        </label>
+        <input
+          id="claim-email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@restaurant.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+        />
+        <p className="mt-1 text-xs text-neutral-500">
+          Use the same email at checkout - it&apos;s how we match your payment back to this storefront.
+        </p>
+      </div>
+
       {/* Checkout button */}
       <button
         onClick={handleCheckout}
-        disabled={!selectedId || busy}
+        disabled={!selectedId || !emailValid || busy}
         className="w-full rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-neutral-900 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {busy ? 'Preparing checkout...' : 'Continue to Payment'}

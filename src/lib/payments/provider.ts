@@ -22,6 +22,13 @@ export interface PackageCheckoutRequest {
   completion_url: string;
   /** Full URL to return to package selection. Provider fills in own params. */
   cancel_url: string;
+  /**
+   * Buyer's email, captured before checkout. Stripe doesn't need this (its
+   * session carries its own reference back to us); GHL payment links do -
+   * this is the only thing that lets the payment-confirmed webhook find its
+   * way back to this specific tenant's pending purchase.
+   */
+  customer_email?: string;
 }
 
 export interface CheckoutResponse {
@@ -76,11 +83,8 @@ export interface BillingProviderImpl {
  */
 export function getActiveBillingProvider(): BillingProvider {
   const provider = (process.env.BILLING_PROVIDER || 'stripe') as BillingProvider;
-  if (provider === 'ghl') {
-    throw new Error('GHL billing provider is disabled; Stripe is the only active billing provider.');
-  }
-  if (provider !== 'stripe') {
+  if (provider !== 'stripe' && provider !== 'ghl') {
     throw new Error(`Invalid BILLING_PROVIDER: ${provider}`);
   }
-  return 'stripe';
+  return provider;
 }

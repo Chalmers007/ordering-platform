@@ -28,6 +28,9 @@ export const maxDuration = 30;
 const schema = z.object({
   tenant_id: z.string().uuid(),
   package_id: z.string().uuid(),
+  // Required by GHLProvider (no session-based checkout to bind to);
+  // StripeProvider ignores it.
+  customer_email: z.string().email().max(254).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -112,6 +115,7 @@ export async function POST(request: NextRequest) {
       internal_reference_id: internalReferenceId,
       completion_url: completionUrl,
       cancel_url: cancelUrl,
+      customer_email: body.customer_email,
     });
 
     if (result.type === 'confirmed') {
