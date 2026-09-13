@@ -31,7 +31,7 @@ export function CreateRestaurantDialog() {
       const body = (await response.json().catch(() => null)) as any;
 
       if (!response.ok) {
-        const errorMsg = body?.error ?? body?.fieldErrors ? JSON.stringify(body.fieldErrors) : 'Failed to create restaurant';
+        const errorMsg = body?.error ?? (body?.fieldErrors ? JSON.stringify(body.fieldErrors) : 'Failed to create restaurant');
         toast.error(errorMsg);
         console.error('Create restaurant failed:', { status: response.status, body });
         return;
