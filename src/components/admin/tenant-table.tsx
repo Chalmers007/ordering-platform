@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Search } from 'lucide-react';
+import { LogIn, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -55,10 +55,13 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
   const [status, setStatus] = useState<TenantStatus | 'all'>('all');
   const [subscription, setSubscription] = useState<SubscriptionStatus | 'all'>('all');
   const [impersonating, setImpersonating] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [rows, setRows] = useState(tenants);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return tenants.filter((tenant) => {
+    return rows.filter((tenant) => {
       if (status !== 'all' && tenant.status !== status) return false;
       if (subscription !== 'all' && tenant.subscription_status !== subscription) return false;
       if (!needle) return true;
@@ -68,7 +71,7 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
         (tenant.support_email ?? '').toLowerCase().includes(needle)
       );
     });
-  }, [tenants, query, status, subscription]);
+  }, [rows, query, status, subscription]);
 
   async function impersonate(tenant: TenantRow) {
     setImpersonating(tenant.id);
@@ -96,6 +99,32 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
       return;
     }
     router.refresh();
+  }
+
+  async function deleteTenant(tenant: TenantRow) {
+    if (confirmingDelete !== tenant.id) {
+      // First click arms it; the button relabels to "Confirm?" for a few
+      // seconds so a stray click never deletes a real restaurant.
+      setConfirmingDelete(tenant.id);
+      setTimeout(() => {
+        setConfirmingDelete((current) => (current === tenant.id ? null : current));
+      }, 4000);
+      return;
+    }
+
+    setConfirmingDelete(null);
+    setDeleting(tenant.id);
+    const response = await fetch(`/api/admin/tenants/${tenant.id}`, { method: 'DELETE' });
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    setDeleting(null);
+
+    if (!response.ok) {
+      toast.error(body?.error ?? 'Could not delete restaurant');
+      return;
+    }
+
+    setRows((current) => current.filter((row) => row.id !== tenant.id));
+    toast.success(`Deleted "${tenant.name}"`);
   }
 
   return (
@@ -212,15 +241,31 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      loading={impersonating === tenant.id}
-                      onClick={() => impersonate(tenant)}
-                    >
-                      <LogIn className="h-3.5 w-3.5" aria-hidden />
-                      Log in as
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={impersonating === tenant.id}
+                        onClick={() => impersonate(tenant)}
+                      >
+                        <LogIn className="h-3.5 w-3.5" aria-hidden />
+                        Log in as
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={deleting === tenant.id}
+                        className={
+                          confirmingDelete === tenant.id
+                            ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                            : 'text-red-600 hover:bg-red-50'
+                        }
+                        onClick={() => deleteTenant(tenant)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        {confirmingDelete === tenant.id ? 'Confirm?' : 'Delete'}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -230,7 +275,7 @@ export function TenantTable({ tenants }: { tenants: TenantRow[] }) {
       </div>
 
       <p className="mt-2 text-xs text-neutral-500">
-        Showing {filtered.length} of {tenants.length} restaurants.
+        Showing {filtered.length} of {rows.length} restaurants.
       </p>
     </section>
   );
