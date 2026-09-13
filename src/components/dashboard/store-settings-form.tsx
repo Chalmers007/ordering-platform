@@ -53,8 +53,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// [color-scheme:dark] matters beyond aesthetics here: it's what tells Chrome
+// to draw native form-control chrome - most visibly the <input type="time">
+// picker icon - in its light variant. Without it the browser defaults to a
+// near-black icon, which disappears against this near-black input background
+// ("hard to see what to click to open" the time picker).
 const inputClass =
-  'border-neutral-700 bg-neutral-950 text-neutral-100 placeholder:text-neutral-600 disabled:opacity-50';
+  'border-neutral-700 bg-neutral-950 text-neutral-100 placeholder:text-neutral-600 disabled:opacity-50 [color-scheme:dark]';
 
 export function StoreSettingsForm({
   tenant,
