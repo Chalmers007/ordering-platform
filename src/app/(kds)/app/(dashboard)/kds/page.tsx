@@ -22,7 +22,7 @@ export default async function KdsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=/kds');
+  if (!user) redirect('/app/login?next=/app/kds');
 
   // Staff see their own restaurant; a super admin sees the one they are
   // impersonating. A super admin has no tenant of their own, so without
