@@ -22,7 +22,7 @@ export function WrongAccountNotice() {
           open this restaurant from the admin console instead.
         </p>
         <p className="mt-6 text-sm">
-          <a href="/login" className="font-medium text-amber-400 hover:text-amber-300">
+          <a href="/app/login" className="font-medium text-amber-400 hover:text-amber-300">
             Sign in with a different account
           </a>
         </p>

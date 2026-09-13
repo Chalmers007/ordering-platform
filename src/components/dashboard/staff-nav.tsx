@@ -23,6 +23,18 @@ export function StaffNav({
 }) {
   const pathname = usePathname();
 
+  // This dashboard is reachable two ways: a real app.<root> subdomain
+  // (where the browser's own address bar shows the bare "/kds" etc. - the
+  // /app prefix is added invisibly by the proxy's hostname-based rewrite),
+  // or a path-based route on the root domain like demo.vardros.com/app/kds
+  // (used whenever "Log in as" lands here, or any dashboard link is shared
+  // as a plain URL). A hardcoded "/kds" href only ever matches the first
+  // case - on the second it sends the browser to a bare, nonexistent path
+  // instead of staying under /app, which is exactly "none of these buttons
+  // go anywhere." Deriving the prefix from the CURRENT pathname keeps both
+  // working without needing to know which mode is active.
+  const basePrefix = pathname === '/app' || pathname.startsWith('/app/') ? '/app' : '';
+
   // The storefront lives on another host, so this cannot be a <Link> — it
   // is a full navigation to a different origin.
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000';
@@ -43,13 +55,14 @@ export function StaffNav({
 
         <nav aria-label="Dashboard" className="-mx-1 flex flex-1 gap-1 overflow-x-auto">
           {TABS.map((tab) => {
-            const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+            const href = `${basePrefix}${tab.href}`;
+            const active = pathname === href || pathname.startsWith(`${href}/`);
             const Icon = tab.icon;
 
             return (
               <Link
                 key={tab.href}
-                href={tab.href}
+                href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
