@@ -199,8 +199,19 @@ export async function proxy(request: NextRequest) {
   // taken over, so blocking it on an unclaimed tenant makes claiming
   // impossible — and it fails as a 200 serving the "not claimed" page,
   // which looks like success to anything reading status codes.
+  //
+  // /demo-builder/claim is the same idea for the plan-picker + Stripe
+  // checkout version of this page: "Activate My Storefront" now self-issues
+  // a token and redirects here from the tenant's OWN subdomain (see
+  // src/components/storefront/preview-banner.tsx), so without this it would
+  // get rewritten to /store/demo-builder/claim and 404 on the one host that
+  // actually needs it, even though it already worked from the root domain.
   const isClaimRoute =
-    pathname === '/claim' || pathname.startsWith('/claim/') || pathname === '/api/claim';
+    pathname === '/claim' ||
+    pathname.startsWith('/claim/') ||
+    pathname === '/demo-builder/claim' ||
+    pathname.startsWith('/demo-builder/claim/') ||
+    pathname === '/api/claim';
 
   // Impersonation, on the two staff-facing surfaces only. The cookie is
   // verified here so nothing downstream has to trust a raw cookie value,
