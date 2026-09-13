@@ -153,20 +153,20 @@ export function PackageSelector({
 
       {/* Email (required so payment confirmation can be matched back to this restaurant) */}
       <div>
-        <label htmlFor="claim-email" className="mb-1 block text-sm font-medium text-neutral-900">
-          Your email
+        <label htmlFor="claim-email" className="mb-1 block text-sm font-medium text-white">
+          Enter your email address to continue <span className="text-yellow-400">*</span>
         </label>
         <input
           id="claim-email"
           type="email"
           required
           autoComplete="email"
-          placeholder="you@restaurant.com"
+          placeholder="Type your email here, e.g. you@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+          className="w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 placeholder:text-neutral-400 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
         />
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-neutral-300">
           Use the same email at checkout - it&apos;s how we match your payment back to this storefront.
         </p>
       </div>
